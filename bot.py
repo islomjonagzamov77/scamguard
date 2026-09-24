@@ -4,9 +4,16 @@ Private chat: forward a suspicious message, link or file and get an explained
 verdict in Uzbek, Russian or English. Menu: how-to, SOS guide, scam types,
 statistics, language, share.
 
+Screenshots: text in photos is read with OCR (Uzbek Latin/Cyrillic, Russian,
+English) and checked like any message. Images are never saved.
+
+Community blocklist: the 🚩 button (or /report in groups) records scam sites,
+phone numbers and Telegram accounts. Once REPORT_THRESHOLD different people
+report the same one, everyone who meets it gets a warning.
+
 Groups: silently scans every message (when the bot is an admin or privacy
-mode is off) and warns only about dangerous ones. /check as a reply scans
-a specific message.
+mode is off) and warns only about dangerous ones. /check and /report as a
+reply work on a specific message.
 
 Run:  python bot.py      (token in .env as BOT_TOKEN=...)
 """
@@ -21,11 +28,12 @@ import re
 import secrets
 import time
 from collections import OrderedDict, defaultdict, deque
+from dataclasses import dataclass, field
 from urllib.parse import quote
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ChatType, MessageEntityType, ParseMode
+from aiogram.enums import ChatAction, ChatType, MessageEntityType, ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramNotFound, TelegramUnauthorizedError
 from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandStart
 from aiogram.types import (
@@ -33,8 +41,10 @@ from aiogram.types import (
     ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
-from scamguard.analyzer import Level, analyze
+from scamguard import blocklist, ocr
+from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import check_file
+from scamguard.reasons import Reason
 from scamguard.i18n import LANG_NAMES, LANGS, SCAM_TYPES, all_variants, guess_lang, t
 from scamguard.storage import Storage
 
@@ -59,7 +69,29 @@ groups = Router(name="groups")
 private.message.filter(F.chat.type == ChatType.PRIVATE)
 groups.message.filter(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
 
-_pending: OrderedDict[str, tuple[str, str]] = OrderedDict()   # feedback key -> (text, predicted level)
+
+
+@dataclass
+class Pending:
+    """What we remember about a verdict so its buttons can work (in memory only)."""
+    text: str
+    level: str
+    forward: tuple[str, str] | None = None
+    feedback_done: bool = False
+    reported: bool = False
+
+
+@dataclass
+class Result:
+    level: Level
+    reasons: list = field(default_factory=list)
+    score: float = 0.0
+    file_level: Level | None = None
+    text: str = ""
+    forward: tuple[str, str] | None = None
+
+
+_pending: OrderedDict[str, Pending] = OrderedDict()           # button key -> Pending
 _hits: dict[int, deque] = defaultdict(deque)                   # user id -> recent check times
 BOT_USERNAME = ""
 
@@ -98,16 +130,19 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     ]])
 
 
-def feedback_keyboard(key: str, lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=t("fb_ok", lang), callback_data=f"fb:ok:{key}"),
-        InlineKeyboardButton(text=t("fb_no", lang), callback_data=f"fb:no:{key}"),
-    ]])
+def verdict_keyboard(key: str, lang: str, feedback: bool = True, report: bool = True) -> InlineKeyboardMarkup | None:
+    rows = []
+    if feedback:
+        rows.append([InlineKeyboardButton(text=t("fb_ok", lang), callback_data=f"fb:ok:{key}"),
+                     InlineKeyboardButton(text=t("fb_no", lang), callback_data=f"fb:no:{key}")])
+    if report:
+        rows.append([InlineKeyboardButton(text=t("report_btn", lang), callback_data=f"rep:{key}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
 
 
-def remember(text: str, level: Level) -> str:
+def remember(result: Result) -> str:
     key = secrets.token_urlsafe(8)
-    _pending[key] = (text, level.value)
+    _pending[key] = Pending(result.text, result.level.value, result.forward)
     while len(_pending) > MAX_CACHE:
         _pending.popitem(last=False)
     return key
@@ -138,19 +173,77 @@ def forward_source(message: Message) -> str | None:
     return getattr(origin, "sender_user_name", None)
 
 
-def evaluate(message: Message):
-    """Return (level, reasons, score, file_level, text) for any text/caption/document message."""
-    text = full_text(message)
+def forward_id(message: Message) -> tuple[str, str] | None:
+    """Stable id + display name of the original sender of a forwarded message (for reports)."""
+    origin = message.forward_origin
+    if origin is None:
+        return None
+    chat = getattr(origin, "chat", None) or getattr(origin, "sender_chat", None)
+    if chat is not None:
+        return f"id:{chat.id}", ("@" + chat.username) if chat.username else (chat.title or "")
+    user = getattr(origin, "sender_user", None)
+    if user is not None and user.username != BOT_USERNAME:
+        return f"id:{user.id}", ("@" + user.username) if user.username else user.full_name
+    return None
+
+
+def is_image(message: Message) -> bool:
+    doc = message.document
+    return bool(message.photo) or bool(doc and (doc.mime_type or "").startswith("image/"))
+
+
+async def download_image(message: Message) -> bytes:
+    """Download a photo or image file into memory (never to disk)."""
+    target = message.photo[-1] if message.photo else message.document
+    if target.file_size and target.file_size > ocr.MAX_BYTES:
+        return b""
+    buf = await message.bot.download(target)
+    return buf.read() if buf else b""
+
+
+_ocr_slots = asyncio.Semaphore(2)   # at most 2 screenshots processed at once (protects the server)
+
+
+async def read_image(message: Message) -> str:
+    """OCR text of the image in `message`, or "" if none / OCR unavailable."""
+    if not is_image(message) or not ocr.available():
+        return ""
+    await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+    data = await download_image(message)
+    async with _ocr_slots:
+        return await asyncio.to_thread(ocr.image_to_text, data)
+
+
+def level_for(score: float) -> Level:
+    return Level.DANGEROUS if score >= DANGEROUS_AT else Level.SUSPICIOUS if score >= SUSPICIOUS_AT else Level.SAFE
+
+
+def community_reasons(text: str, forward) -> list[Reason]:
+    """Warnings for indicators that enough different people have reported."""
+    indicators = blocklist.extract(text, forward, {BOT_USERNAME.lower()})
+    reasons = []
+    for ind, n in storage.report_counts(indicators).items():
+        if n >= blocklist.REPORT_THRESHOLD:
+            key = f"hit_{ind.kind}"
+            reasons.append(Reason(t(key, "uz", n=n, preview=ind.preview), t(key, "en", n=n, preview=ind.preview),
+                                  t(key, "ru", n=n, preview=ind.preview)))
+    return reasons
+
+
+def evaluate(message: Message, extra_text: str = "") -> Result | None:
+    """Full check of a message: text, hidden links, file, OCR text and the community blocklist."""
+    text = "\n".join(filter(None, [full_text(message), extra_text]))
     file_level, reasons, score = None, [], 0.0
     doc = message.document
     if doc is not None:
         fv = check_file(doc.file_name, doc.mime_type)
         file_level, reasons = fv.level, list(fv.reasons)
         text = " ".join(filter(None, [text, doc.file_name]))
-    if not text and doc is None:
+    forward = forward_id(message)
+    if not text and doc is None and forward is None:
         return None
     verdict = analyze(text) if text else None
-    levels = [lv for lv in (file_level, verdict.level if verdict else None) if lv is not None]
+    levels = [lv for lv in (file_level, verdict.level if verdict else None) if lv is not None] or [Level.SAFE]
     level = max(levels, key=LEVEL_ORDER.index)
     if verdict:
         reasons += verdict.reasons
@@ -159,12 +252,21 @@ def evaluate(message: Message):
         score = max(score, 0.95)
     elif file_level == Level.SUSPICIOUS:
         score = max(score, 0.5)
-    return level, reasons, score, file_level, text
+    hits = community_reasons(text, forward)
+    if hits:
+        reasons = hits + reasons
+        score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
+        level = max(level, level_for(score), key=LEVEL_ORDER.index)
+    return Result(level, reasons, score, file_level, text, forward)
 
 
-def render(lang: str, level: Level, reasons, score: float, file_name: str | None = None,
-           file_level: Level | None = None, source: str | None = None) -> str:
+def render(lang: str, r: Result, file_name: str | None = None, source: str | None = None, ocr_text: str = "") -> str:
+    level, reasons, score, file_level = r.level, r.reasons, r.score, r.file_level
     lines = [t(f"v_{level.value}", lang), f"{t('risk', lang)}: <b>{round(score * 100)}%</b>"]
+    if ocr_text:
+        snippet = " ".join(ocr_text.split())
+        snippet = snippet[:160] + ("…" if len(snippet) > 160 else "")
+        lines.append(f"{t('ocr_read', lang)}: <i>«{html.escape(snippet)}»</i>")
     if file_name:
         lines.append(f"{t('file', lang)}: <code>{html.escape(file_name)}</code>")
     if source:
@@ -224,7 +326,7 @@ async def cmd_types(message: Message) -> None:
 @private.message(Command("stats"))
 @private.message(F.text.in_(all_variants("btn_stats")))
 async def cmd_stats(message: Message) -> None:
-    await message.answer(t("stats", lang_of(message.from_user), **storage.stats()))
+    await message.answer(t("stats", lang_of(message.from_user), **storage.stats(blocklist.REPORT_THRESHOLD)))
 
 
 @private.message(F.text.in_(all_variants("btn_share")))
@@ -241,23 +343,32 @@ async def cmd_privacy(message: Message) -> None:
     await message.answer(t("privacy", lang_of(message.from_user)))
 
 
-@private.message(F.text | F.caption | F.document)
+@private.message(F.text | F.caption | F.document | F.photo)
 async def on_check(message: Message) -> None:
     lang = lang_of(message.from_user)
     if rate_limited(message.from_user.id):
         await message.reply(t("rate_limited", lang))
         return
-    result = evaluate(message)
+    ocr_text = ""
+    if is_image(message):
+        if not ocr.available():
+            if not (message.caption or message.document):
+                await message.reply(t("ocr_off", lang))
+                return
+        else:
+            ocr_text = await read_image(message)
+            if not ocr_text and not message.caption and forward_id(message) is None:
+                await message.reply(t("ocr_empty", lang))
+                return
+    result = evaluate(message, ocr_text)
     if result is None:
         await message.reply(t("empty", lang))
         return
-    level, reasons, score, file_level, text = result
-    storage.record_check(level.value)
+    storage.record_check(result.level.value)
     doc = message.document
-    reply = render(lang, level, reasons, score, doc.file_name if doc else None, file_level, forward_source(message))
-    key = remember(text, level) if text else None
-    await message.reply(reply, reply_markup=feedback_keyboard(key, lang) if key else None,
-                        disable_web_page_preview=True)
+    reply = render(lang, result, doc.file_name if doc else None, forward_source(message), ocr_text)
+    markup = verdict_keyboard(remember(result), lang) if (result.text or result.forward) else None
+    await message.reply(reply, reply_markup=markup, disable_web_page_preview=True)
 
 
 @private.message()
@@ -274,15 +385,30 @@ async def group_check(message: Message) -> None:
     if target is None:
         await message.reply(t("check_hint", lang))
         return
-    result = evaluate(target)
+    result = evaluate(target, await read_image(target))
     if result is None:
         await message.reply(t("empty", lang))
         return
-    level, reasons, score, file_level, _ = result
-    storage.record_check(level.value)
+    storage.record_check(result.level.value)
     doc = target.document
-    await target.reply(render(lang, level, reasons, score, doc.file_name if doc else None, file_level),
-                       disable_web_page_preview=True)
+    await target.reply(render(lang, result, doc.file_name if doc else None), disable_web_page_preview=True)
+
+
+@groups.message(Command("report"))
+async def group_report(message: Message) -> None:
+    lang = lang_of(message.from_user)
+    target = message.reply_to_message
+    if target is None:
+        await message.reply(t("report_hint", lang))
+        return
+    if rate_limited(message.from_user.id):
+        return
+    result = evaluate(target, await read_image(target))
+    if result is None:
+        await message.reply(t("empty", lang))
+        return
+    await message.reply(record_report(Pending(result.text, result.level.value, result.forward),
+                                      message.from_user.id, lang) or t("report_dup", lang))
 
 
 @groups.message(Command("help", "start"))
@@ -298,12 +424,11 @@ async def group_scan(message: Message) -> None:
     result = evaluate(message)
     if result is None:
         return
-    level, reasons, *_ = result
-    storage.record_check(level.value)
-    if level != Level.DANGEROUS:
+    storage.record_check(result.level.value)
+    if result.level != Level.DANGEROUS:
         return
     lang = lang_of(message.from_user)
-    lines = [t("group_warn", lang)] + [f"• {html.escape(r.text(lang))}" for r in reasons[:3]]
+    lines = [t("group_warn", lang)] + [f"• {html.escape(r.text(lang))}" for r in result.reasons[:3]]
     lines.append(f"\n💡 {t('group_warn_tail', lang)}")
     await message.reply("\n".join(lines), disable_web_page_preview=True)
 
@@ -350,24 +475,67 @@ async def on_types_back(callback: CallbackQuery) -> None:
         await callback.message.edit_text(t("types_title", lang), reply_markup=types_keyboard(lang))
 
 
+async def _update_buttons(callback: CallbackQuery, key: str, p: Pending, lang: str) -> None:
+    if callback.message is None:
+        return
+    try:
+        await callback.message.edit_reply_markup(
+            reply_markup=verdict_keyboard(key, lang, feedback=not p.feedback_done, report=not p.reported))
+    except TelegramBadRequest:
+        pass
+
+
+def record_report(p: Pending, reporter_id: int, lang: str) -> str | None:
+    """Save a scam report. Returns the confirmation text, or None if this person already reported all of it."""
+    if not p.feedback_done and p.text:
+        storage.add_feedback(p.text, 1, p.level, p.level != Level.SAFE.value)
+        p.feedback_done = True
+    p.reported = True
+    indicators = blocklist.extract(p.text, p.forward, {BOT_USERNAME.lower()})
+    if not indicators:
+        return t("report_none", lang)
+    if storage.add_reports(indicators, reporter_id) == 0:
+        return None
+    items = "\n".join(f"• {html.escape(i.preview)}" for i in indicators)
+    return t("report_done", lang, items=items, threshold=blocklist.REPORT_THRESHOLD)
+
+
 @dp.callback_query(F.data.startswith("fb:"))
 async def on_feedback(callback: CallbackQuery) -> None:
     lang = lang_of(callback.from_user)
     _, answer, key = callback.data.split(":", 2)
-    item = _pending.pop(key, None)
-    if item is None:
+    p = _pending.get(key)
+    if p is None:
         await callback.answer(t("fb_expired", lang))
         return
-    text, predicted = item
-    predicted_scam = predicted != Level.SAFE.value
-    label = int(predicted_scam if answer == "ok" else not predicted_scam)
-    storage.add_feedback(text, label, predicted, answer == "ok")
+    if not p.feedback_done:
+        predicted_scam = p.level != Level.SAFE.value
+        label = int(predicted_scam if answer == "ok" else not predicted_scam)
+        storage.add_feedback(p.text, label, p.level, answer == "ok")
+        p.feedback_done = True
     await callback.answer(t("fb_thanks", lang))
-    if callback.message:
-        try:
-            await callback.message.edit_reply_markup(reply_markup=None)
-        except TelegramBadRequest:
-            pass
+    await _update_buttons(callback, key, p, lang)
+
+
+@dp.callback_query(F.data.startswith("rep:"))
+async def on_report(callback: CallbackQuery) -> None:
+    lang = lang_of(callback.from_user)
+    key = callback.data.split(":", 1)[1]
+    p = _pending.get(key)
+    if p is None:
+        await callback.answer(t("fb_expired", lang))
+        return
+    if rate_limited(callback.from_user.id):
+        await callback.answer(t("rate_limited", lang))
+        return
+    confirmation = record_report(p, callback.from_user.id, lang)
+    if confirmation is None:
+        await callback.answer(t("report_dup", lang))
+    else:
+        await callback.answer()
+        if callback.message:
+            await callback.message.reply(confirmation)
+    await _update_buttons(callback, key, p, lang)
 
 
 @dp.errors()
@@ -389,7 +557,7 @@ async def setup_profile(bot: Bot) -> None:
                 scope=BotCommandScopeDefault(), language_code=code,
             )
             await bot.set_my_commands(
-                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "help")],
+                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "help")],
                 scope=BotCommandScopeAllGroupChats(), language_code=code,
             )
             if (await bot.get_my_description(language_code=code)).description != t("bot_description", lang):

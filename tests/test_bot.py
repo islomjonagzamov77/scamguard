@@ -159,3 +159,113 @@ def test_rate_limit(env):
     for _ in range(botmod.RATE_LIMIT[0]):
         feed({"message": msg("hello")})
     assert "Too fast" in feed({"message": msg("hello")})
+
+
+# ---------------- screenshots ----------------
+from aiogram.types import MessageOriginUser, PhotoSize  # noqa: E402
+
+
+def photo_msg(chat=PRIVATE, caption=None, forward_from=None):
+    extra = {}
+    if forward_from:
+        extra["forward_origin"] = MessageOriginUser(date=datetime.now(), sender_user=forward_from)
+    return Message(message_id=next(_uid), date=datetime.now(), chat=chat, from_user=USER, caption=caption,
+                   photo=[PhotoSize(file_id="p", file_unique_id="p", width=800, height=600, file_size=50_000)], **extra)
+
+
+def fake_ocr(monkeypatch, botmod, text):
+    async def fake_download(message):
+        return b"img"
+    monkeypatch.setattr(botmod, "download_image", fake_download)
+    monkeypatch.setattr(botmod.ocr, "available", lambda: True)
+    monkeypatch.setattr(botmod.ocr, "image_to_text", lambda data: text)
+
+
+def test_screenshot_is_read_and_checked(env, monkeypatch):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "uz")
+    fake_ocr(monkeypatch, botmod, "Kartangiz bloklandi. SMS kodni yuboring")
+    reply = feed({"message": photo_msg()})
+    assert "Rasmdan o'qildi" in reply and "🔴" in reply
+
+
+def test_screenshot_without_text(env, monkeypatch):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    fake_ocr(monkeypatch, botmod, "")
+    assert "couldn't find readable text" in feed({"message": photo_msg()})
+
+
+def test_screenshot_ocr_disabled(env, monkeypatch):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    monkeypatch.setattr(botmod.ocr, "available", lambda: False)
+    assert "turned off" in feed({"message": photo_msg()})
+
+
+# ---------------- community blocklist ----------------
+SCAM = "Pulni o'tkazib berdim, to'lovni qabul qilish uchun olx-pay-uz.top ga kiring yoki +998 90 111 22 33 ga yozing"
+OTHER_USER = User(id=77, is_bot=False, first_name="Aziz", language_code="uz")
+
+
+def press_report(feed, session, user):
+    rows = session.calls[-1].reply_markup.inline_keyboard
+    data = rows[-1][0].callback_data
+    assert data.startswith("rep:")
+    feed({"callback_query": CallbackQuery(id=str(next(_uid)), from_user=user, chat_instance="x", data=data, message=msg("x"))})
+
+
+def test_report_needs_two_people_then_warns_everyone(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    botmod.storage.set_lang(OTHER_USER.id, "en")
+    innocent = "Hi, call me at +998 90 111 22 33 about the sofa"   # same number, harmless text
+
+    feed({"message": msg(SCAM)})
+    press_report(feed, session, USER)
+    assert "Reported" in session.sent_texts()[-1] and "olx-pay-uz.top" in session.sent_texts()[-1]
+    assert "+99890***33" in session.sent_texts()[-1]          # phone shown masked
+    # one report is not enough: no community warning yet
+    assert "users reported" not in feed({"message": msg(innocent)})
+
+    # the same person reporting twice does not count twice
+    feed({"message": msg(SCAM)})
+    press_report(feed, session, USER)
+    answers = [getattr(c, "text", "") or "" for c in session.calls if type(c).__name__ == "AnswerCallbackQuery"]
+    assert "You already reported this 👍" in answers
+    assert "users reported" not in feed({"message": msg(innocent)})
+
+    # a second, different person reports -> now everyone is warned
+    feed({"message": msg(SCAM)})
+    press_report(feed, session, OTHER_USER)
+    reply = feed({"message": msg(innocent)})
+    assert "2 users reported the number +99890***33" in reply
+    assert "🟡" in reply or "🔴" in reply
+    assert botmod.storage.stats(2)["blocked"] >= 2
+
+
+def test_numbers_are_not_stored_in_plain_text(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    feed({"message": msg(SCAM)})
+    press_report(feed, session, USER)
+    rows = botmod.storage.db.execute("SELECT ind, preview FROM reports").fetchall()
+    dump = str(rows)
+    assert "901112233" not in dump and "+998901112233" not in dump
+
+
+def test_report_forwarded_account(env, monkeypatch):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    scammer = User(id=555, is_bot=False, first_name="Olx", username="olx_support_uz")
+    fake_ocr(monkeypatch, botmod, "")
+    feed({"message": photo_msg(forward_from=scammer)})      # forwarded photo, no text
+    press_report(feed, session, USER)
+    assert "@olx***" in session.sent_texts()[-1]
+
+
+def test_group_report_command(env):
+    botmod, session, feed = env
+    target = msg(SCAM, chat=GROUP)
+    reply = feed({"message": msg("/report", chat=GROUP, reply_to=target)})
+    assert "olx-pay-uz.top" in reply

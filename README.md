@@ -13,6 +13,8 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 
 - 🌐 **3 languages**: Uzbek, Russian, English. Auto-detected, switchable with /lang
 - 🔍 **Explained verdicts** for messages, links (including links hidden behind text) and files
+- 📷 **Reads screenshots**: OCR in Uzbek (Latin + Cyrillic), Russian and English, with adaptive thresholding so light- and dark-mode chat screenshots both work. Images are processed in memory only
+- 🚩 **Community blocklist**: users report scam sites, phone numbers and Telegram accounts. After 2 *different* people report the same one, everyone who meets it is warned. The threshold protects innocent people from a single false report. Numbers and accounts are stored only as salted SHA-256 fingerprints
 - 📎 **File checks by name and type only**: .apk/.exe, double extensions like `photo.jpg.apk`, macro documents, archives. Files are never downloaded
 - 🆘 **"I got scammed" guide**: block the card, secure Telegram, keep evidence, call 102
 - 📚 **Scam-types guide**: 8 common Uzbek scams with red flags
@@ -46,7 +48,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 45 tests incl. a simulated Telegram chat
+python -m pytest                   # 55 tests incl. a simulated Telegram chat and real OCR
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 

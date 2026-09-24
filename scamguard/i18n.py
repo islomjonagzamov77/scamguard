@@ -42,6 +42,7 @@ T: dict[str, dict[str, str]] = {
         "uz": "🔍 <b>Qanday tekshiraman?</b>\n\n"
               "1️⃣ Shubhali xabarni bosib turing → <b>Forward</b> → ScamGuard'ni tanlang\n"
               "2️⃣ Yoki matn / havolani nusxalab shu yerga yuboring\n"
+              "📷 Yoki <b>skrinshot</b> yuboring — rasmdagi matnni o'qiyman\n"
               "3️⃣ Fayllarni ham yuborishingiz mumkin — men ularni <b>ochmayman</b>, faqat nomi va turini tekshiraman\n\n"
               "Men tekshiraman:\n"
               "• 💬 matndagi firibgarlik belgilari (o'zbek lotin/kirill, rus, ingliz)\n"
@@ -49,10 +50,12 @@ T: dict[str, dict[str, str]] = {
               "• 🙈 matn orqasiga yashirilgan havolalar\n"
               "• 📎 xavfli fayllar (.apk, .exe, <code>rasm.jpg.apk</code>)\n"
               "• 🤖 AI model bahosi\n\n"
-              "👥 Guruhda: xabarga javoban /check yozing.",
+              "🚩 Firibgarni ko'rsangiz — «Firibgar deb belgilash» tugmasini bosing. 2 kishi belgilasa, bot hammani ogohlantiradi.\n\n"
+              "👥 Guruhda: xabarga javoban /check yoki /report yozing.",
         "ru": "🔍 <b>Как проверить?</b>\n\n"
               "1️⃣ Зажмите подозрительное сообщение → <b>Переслать</b> → выберите ScamGuard\n"
               "2️⃣ Или скопируйте текст / ссылку и отправьте сюда\n"
+              "📷 Или пришлите <b>скриншот</b> — я прочитаю текст на картинке\n"
               "3️⃣ Можно присылать и файлы — я их <b>не открываю</b>, проверяю только имя и тип\n\n"
               "Я проверяю:\n"
               "• 💬 признаки мошенничества в тексте (узбекский, русский, английский)\n"
@@ -60,10 +63,12 @@ T: dict[str, dict[str, str]] = {
               "• 🙈 ссылки, спрятанные за текстом\n"
               "• 📎 опасные файлы (.apk, .exe, <code>foto.jpg.apk</code>)\n"
               "• 🤖 оценку AI-модели\n\n"
-              "👥 В группе: ответьте на сообщение командой /check.",
+              "🚩 Увидели мошенника — нажмите «Пожаловаться». Когда отметят 2 человека, бот будет предупреждать всех.\n\n"
+              "👥 В группе: ответьте на сообщение командой /check или /report.",
         "en": "🔍 <b>How to check</b>\n\n"
               "1️⃣ Long-press the suspicious message → <b>Forward</b> → choose ScamGuard\n"
               "2️⃣ Or copy the text / link and send it here\n"
+              "📷 Or send a <b>screenshot</b>. I'll read the text in the image\n"
               "3️⃣ You can send files too. I <b>never open them</b>, I only check the name and type\n\n"
               "I check:\n"
               "• 💬 scam patterns in the text (Uzbek, Russian, English)\n"
@@ -71,7 +76,8 @@ T: dict[str, dict[str, str]] = {
               "• 🙈 links hidden behind text\n"
               "• 📎 dangerous files (.apk, .exe, <code>photo.jpg.apk</code>)\n"
               "• 🤖 the AI model's score\n\n"
-              "👥 In a group: reply to a message with /check.",
+              "🚩 Spotted a scammer? Tap \"Report as scam\". Once 2 people report it, the bot warns everyone.\n\n"
+              "👥 In a group: reply to a message with /check or /report.",
     },
     # ---------- verdicts ----------
     "v_safe": {"uz": "🟢 <b>Xavf belgilari topilmadi</b>", "ru": "🟢 <b>Признаков угрозы не найдено</b>",
@@ -124,10 +130,10 @@ T: dict[str, dict[str, str]] = {
               "ru": "Отправьте текст, ссылку или файл для проверки.",
               "en": "Send a text, link or file to check."},
     "other_media": {
-        "uz": "Men matn, havola va fayllarni tekshiraman. Rasm yoki ovozli xabar ichidagi matnni hozircha o'qiy olmayman — "
-              "shubhali matnni nusxalab yuboring.",
-        "ru": "Я проверяю текст, ссылки и файлы. Текст на картинках и в голосовых пока не читаю — скопируйте подозрительный текст.",
-        "en": "I check text, links and files. I can't read text inside photos or voice messages yet, so copy the suspicious text instead.",
+        "uz": "Men matn, havola, fayl va skrinshotlarni tekshiraman. Ovozli xabar va videolarni hozircha tekshira olmayman — "
+              "shubhali matnni yozib yuboring.",
+        "ru": "Я проверяю текст, ссылки, файлы и скриншоты. Голосовые и видео пока не проверяю — напишите подозрительный текст.",
+        "en": "I check text, links, files and screenshots. I can't check voice messages or videos yet, so type out the suspicious text.",
     },
     "rate_limited": {"uz": "⏳ Juda tez! Bir daqiqadan so'ng qayta urinib ko'ring.",
                      "ru": "⏳ Слишком быстро! Попробуйте через минуту.",
@@ -177,21 +183,24 @@ T: dict[str, dict[str, str]] = {
               "🔍 Jami tekshiruvlar: <b>{checks}</b>\n"
               "🔴 Xavfli topildi: <b>{dangerous}</b>\n"
               "🟡 Shubhali: <b>{suspicious}</b>\n"
-              "📅 Bugun tekshirildi: <b>{today}</b>\n\n"
+              "📅 Bugun tekshirildi: <b>{today}</b>\n"
+              "🚩 Jamoa bloklagan: <b>{blocked}</b>\n\n"
               "<i>Xabarlaringiz saqlanmaydi — faqat anonim sonlar.</i>",
         "ru": "📊 <b>Статистика ScamGuard</b>\n\n"
               "👥 Пользователей: <b>{users}</b>\n"
               "🔍 Всего проверок: <b>{checks}</b>\n"
               "🔴 Найдено опасных: <b>{dangerous}</b>\n"
               "🟡 Подозрительных: <b>{suspicious}</b>\n"
-              "📅 Проверок сегодня: <b>{today}</b>\n\n"
+              "📅 Проверок сегодня: <b>{today}</b>\n"
+              "🚩 Заблокировано сообществом: <b>{blocked}</b>\n\n"
               "<i>Сообщения не сохраняются — только анонимные счётчики.</i>",
         "en": "📊 <b>ScamGuard statistics</b>\n\n"
               "👥 Users: <b>{users}</b>\n"
               "🔍 Total checks: <b>{checks}</b>\n"
               "🔴 Dangerous found: <b>{dangerous}</b>\n"
               "🟡 Suspicious: <b>{suspicious}</b>\n"
-              "📅 Checked today: <b>{today}</b>\n\n"
+              "📅 Checked today: <b>{today}</b>\n"
+              "🚩 Blocked by the community: <b>{blocked}</b>\n\n"
               "<i>Messages aren't stored, only anonymous counts.</i>",
     },
     # ---------- share ----------
@@ -213,19 +222,22 @@ T: dict[str, dict[str, str]] = {
               "• Faqat «✅/❌» tugmasini bossangiz, xabar matni modelni yaxshilash uchun saqlanadi — "
               "karta, telefon raqamlari va emaillar oldindan o'chiriladi.\n"
               "• Ism va Telegram ID saqlanmaydi (til sozlamasi uchun faqat shifrlangan belgi).\n"
-              "• Fayllar yuklab olinmaydi va ochilmaydi.",
+              "• Fayllar yuklab olinmaydi va ochilmaydi. Skrinshotlar faqat xotirada o'qiladi va saqlanmaydi.\n"
+              "• 🚩 Belgilangan raqam va akkauntlar faqat shifrlangan belgi sifatida saqlanadi.",
         "ru": "🔒 <b>Конфиденциальность</b>\n\n"
               "• Проверенные сообщения <b>не сохраняются</b>.\n"
               "• Только если вы нажмёте «✅/❌», текст сохраняется для улучшения модели — "
               "номера карт, телефонов и email предварительно удаляются.\n"
               "• Имя и Telegram ID не хранятся (для языка — только зашифрованный отпечаток).\n"
-              "• Файлы не скачиваются и не открываются.",
+              "• Файлы не скачиваются и не открываются. Скриншоты читаются только в памяти и не сохраняются.\n"
+              "• 🚩 Отмеченные номера и аккаунты хранятся только в виде зашифрованных отпечатков.",
         "en": "🔒 <b>Privacy</b>\n\n"
               "• Checked messages are <b>not stored</b>.\n"
               "• Only when you press ✅/❌ is the text saved to improve the model, "
               "with card numbers, phone numbers and emails removed first.\n"
               "• Names and Telegram IDs are not stored (only a hashed fingerprint for your language setting).\n"
-              "• Files are never downloaded or opened.",
+              "• Files are never downloaded or opened. Screenshots are read in memory only and never saved.\n"
+              "• 🚩 Reported numbers and accounts are stored only as hashed fingerprints.",
     },
     # ---------- groups ----------
     "group_hello": {
@@ -254,6 +266,51 @@ T: dict[str, dict[str, str]] = {
         "ru": "Ответьте командой /check <b>на сообщение</b>, которое нужно проверить.",
         "en": "<b>Reply</b> to a message with /check to scan it.",
     },
+    # ---------- screenshots ----------
+    "ocr_read": {"uz": "📷 Rasmdan o'qildi", "ru": "📷 Прочитано с картинки", "en": "📷 Read from the image"},
+    "ocr_empty": {
+        "uz": "📷 Rasmda o'qiladigan matn topilmadi. Matnni nusxalab yuborib ko'ring.",
+        "ru": "📷 На картинке не найден читаемый текст. Попробуйте скопировать текст.",
+        "en": "📷 I couldn't find readable text in this image. Try copying the text instead.",
+    },
+    "ocr_off": {
+        "uz": "📷 Rasmlarni o'qish hozircha o'chirilgan. Matnni nusxalab yuboring.",
+        "ru": "📷 Чтение картинок сейчас отключено. Скопируйте текст.",
+        "en": "📷 Screenshot reading is turned off right now. Please copy the text.",
+    },
+    # ---------- community reports ----------
+    "report_btn": {"uz": "🚩 Firibgar deb belgilash", "ru": "🚩 Пожаловаться", "en": "🚩 Report as scam"},
+    "report_done": {
+        "uz": "🚩 <b>Rahmat!</b> Belgilandi:\n{items}\n\n{threshold} xil odam belgilagach, bot boshqalarni ham ogohlantiradi.",
+        "ru": "🚩 <b>Спасибо!</b> Отмечено:\n{items}\n\nКогда отметят {threshold} разных человека, бот начнёт предупреждать остальных.",
+        "en": "🚩 <b>Thanks!</b> Reported:\n{items}\n\nOnce {threshold} different people report it, the bot will warn everyone else.",
+    },
+    "report_none": {
+        "uz": "🚩 Rahmat! Xabarda havola, telefon raqam yoki Telegram akkaunt topilmadi, lekin u AI modelni o'qitish uchun saqlandi.",
+        "ru": "🚩 Спасибо! В сообщении нет ссылок, номеров или Telegram-аккаунтов, но оно сохранено для обучения AI-модели.",
+        "en": "🚩 Thanks! No links, phone numbers or Telegram accounts were found, but the message was saved to train the AI model.",
+    },
+    "report_dup": {"uz": "Siz buni allaqachon belgilagansiz 👍", "ru": "Вы уже отметили это 👍", "en": "You already reported this 👍"},
+    "report_hint": {
+        "uz": "Firibgar xabarga <b>javob</b> tariqasida /report yozing.",
+        "ru": "Ответьте командой /report <b>на сообщение</b> мошенника.",
+        "en": "<b>Reply</b> to the scam message with /report.",
+    },
+    "hit_site": {
+        "uz": "🚩 {n} foydalanuvchi {preview} ni firibgar deb belgilagan",
+        "ru": "🚩 {n} пользователей отметили {preview} как мошенничество",
+        "en": "🚩 {n} users reported {preview} as a scam",
+    },
+    "hit_phone": {
+        "uz": "🚩 {n} foydalanuvchi {preview} raqamini firibgar deb belgilagan",
+        "ru": "🚩 {n} пользователей отметили номер {preview} как мошеннический",
+        "en": "🚩 {n} users reported the number {preview} as a scammer",
+    },
+    "hit_tg": {
+        "uz": "🚩 {n} foydalanuvchi {preview} Telegram akkauntini firibgar deb belgilagan",
+        "ru": "🚩 {n} пользователей отметили Telegram-аккаунт {preview} как мошеннический",
+        "en": "🚩 {n} users reported the Telegram account {preview} as a scammer",
+    },
     # ---------- bot profile (set automatically on startup) ----------
     "bot_short": {
         "uz": "🛡 Firibgarlikni aniqlovchi AI bot. Shubhali xabar, havola yoki faylni forward qiling!",
@@ -264,6 +321,7 @@ T: dict[str, dict[str, str]] = {
         "uz": "🛡 ScamGuard — O'zbekiston uchun firibgarlikni aniqlovchi AI bot.\n\n"
               "✅ Soxta yutuq, «bank xodimi», OLX va .apk firibgarliklari\n"
               "✅ Soxta saytlar: c1ick.uz, paymе-bonus.xyz\n"
+              "✅ Skrinshotlarni o'qiydi\n"
               "✅ O'zbek (lotin/kirill), rus va ingliz tillari\n"
               "✅ Guruhlarni himoya qiladi\n"
               "🔒 Xabarlaringiz saqlanmaydi\n\n"
@@ -271,6 +329,7 @@ T: dict[str, dict[str, str]] = {
         "ru": "🛡 ScamGuard — AI-бот для распознавания мошенничества в Узбекистане.\n\n"
               "✅ Фейковые выигрыши, «сотрудники банка», OLX и .apk\n"
               "✅ Поддельные сайты: c1ick.uz, paymе-bonus.xyz\n"
+              "✅ Читает скриншоты\n"
               "✅ Узбекский (латиница/кириллица), русский и английский\n"
               "✅ Защищает группы\n"
               "🔒 Сообщения не сохраняются\n\n"
@@ -278,6 +337,7 @@ T: dict[str, dict[str, str]] = {
         "en": "🛡 ScamGuard: an AI scam detector built for Uzbekistan.\n\n"
               "✅ Fake prizes, \"bank staff\", OLX and .apk scams\n"
               "✅ Fake sites like c1ick.uz, paymе-bonus.xyz\n"
+              "✅ Reads screenshots\n"
               "✅ Uzbek (Latin/Cyrillic), Russian and English\n"
               "✅ Protects group chats\n"
               "🔒 Your messages are not stored\n\n"
@@ -290,6 +350,8 @@ T: dict[str, dict[str, str]] = {
     "cmd_stats": {"uz": "Statistika", "ru": "Статистика", "en": "Statistics"},
     "cmd_lang": {"uz": "Tilni o'zgartirish", "ru": "Сменить язык", "en": "Change language"},
     "cmd_privacy": {"uz": "Maxfiylik", "ru": "Конфиденциальность", "en": "Privacy"},
+    "cmd_report": {"uz": "Firibgarni belgilash (javob sifatida)", "ru": "Пожаловаться на мошенника (ответом)",
+                   "en": "Report a scammer (as a reply)"},
     "cmd_check": {"uz": "Guruhda xabarni tekshirish (javob sifatida)", "ru": "Проверить сообщение в группе (ответом)",
                   "en": "Scan a message in a group (as a reply)"},
 }

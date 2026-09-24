@@ -38,6 +38,11 @@ class Storage:
                 checks INTEGER DEFAULT 0, safe INTEGER DEFAULT 0,
                 suspicious INTEGER DEFAULT 0, dangerous INTEGER DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS reports (
+                ind TEXT NOT NULL, kind TEXT NOT NULL, preview TEXT NOT NULL,
+                reporter TEXT NOT NULL, ts TEXT NOT NULL,
+                PRIMARY KEY (ind, reporter)
+            );
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 text TEXT NOT NULL, label INTEGER NOT NULL, predicted TEXT NOT NULL,
@@ -83,13 +88,44 @@ class Storage:
         )
         self.db.commit()
 
-    def stats(self) -> dict[str, int]:
+    def stats(self, threshold: int = 2) -> dict[str, int]:
         users = self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         c, s, d = self.db.execute(
             "SELECT COALESCE(SUM(checks),0), COALESCE(SUM(suspicious),0), COALESCE(SUM(dangerous),0) FROM daily"
         ).fetchone()
         row = self.db.execute("SELECT checks FROM daily WHERE day = ?", (date.today().isoformat(),)).fetchone()
-        return {"users": users, "checks": c, "suspicious": s, "dangerous": d, "today": row[0] if row else 0}
+        return {"users": users, "checks": c, "suspicious": s, "dangerous": d, "today": row[0] if row else 0,
+                "blocked": self.blocked_count(threshold)}
+
+    # ---- community blocklist ----
+    def _ind(self, kind: str, value: str) -> str:
+        return hashlib.sha256(self._salt + f"{kind}:{value}".encode()).hexdigest()[:32]
+
+    def add_reports(self, indicators, reporter_id: int) -> int:
+        """Record one person's report of these indicators. Returns how many were new for this person."""
+        reporter, now, new = self._fp(reporter_id), datetime.now(timezone.utc).isoformat(timespec="seconds"), 0
+        for ind in indicators:
+            cur = self.db.execute(
+                "INSERT OR IGNORE INTO reports (ind, kind, preview, reporter, ts) VALUES (?, ?, ?, ?, ?)",
+                (self._ind(ind.kind, ind.value), ind.kind, ind.preview, reporter, now),
+            )
+            new += cur.rowcount
+        self.db.commit()
+        return new
+
+    def report_counts(self, indicators) -> dict:
+        """Number of distinct reporters for each indicator (only those reported at least once)."""
+        out = {}
+        for ind in indicators:
+            n = self.db.execute("SELECT COUNT(*) FROM reports WHERE ind = ?", (self._ind(ind.kind, ind.value),)).fetchone()[0]
+            if n:
+                out[ind] = n
+        return out
+
+    def blocked_count(self, threshold: int) -> int:
+        return self.db.execute(
+            "SELECT COUNT(*) FROM (SELECT ind FROM reports GROUP BY ind HAVING COUNT(*) >= ?)", (threshold,)
+        ).fetchone()[0]
 
     # ---- feedback ----
     def add_feedback(self, text: str, label: int, predicted: str, user_agreed: bool) -> None:

@@ -8,3 +8,4 @@ data/feedback.csv
 data/scamguard.db
 data/.salt
 data/feedback_export.csv
+.DS_Store
