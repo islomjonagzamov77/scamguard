@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+models/*.joblib
+data/feedback.csv
+.pytest_cache/
+data/scamguard.db
+data/.salt
+data/feedback_export.csv
