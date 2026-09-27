@@ -26,4 +26,5 @@ RUN python train.py && SCAMGUARD_DATA_DIR=/tmp/sg-test python -m pytest -q && rm
 RUN useradd --create-home scamguard && mkdir -p /data && chown -R scamguard /app /data
 USER scamguard
 
+EXPOSE 8080
 CMD ["python", "bot.py"]

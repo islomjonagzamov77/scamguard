@@ -97,10 +97,12 @@ class LinkReport:
     score: float = 0.0
     reasons: list[Reason] = field(default_factory=list)
     official: bool = False   # the link goes to a known official site
+    signals: list[str] = field(default_factory=list)
 
-    def add(self, weight: float, reason: Reason) -> None:
+    def add(self, weight: float, reason: Reason, signal: str = "link") -> None:
         self.score = min(1.0, self.score + weight)
         self.reasons.append(reason)
+        self.signals.append(signal)
 
 
 def extract_urls(text: str) -> list[str]:
@@ -189,68 +191,69 @@ def analyze_url(url: str) -> LinkReport:
     brand = _impersonated_brand(host)
     if brand:
         real = ", ".join(sorted(OFFICIAL_DOMAINS[brand]))
+        report.signals.append(f"brand:{brand}")
         brand = BRAND_LABELS.get(brand, brand.capitalize())
         report.add(0.75, Reason(
             f"«{host}» — {brand} saytiga o'xshatib yasalgan soxta sayt (asl manzil: {real})",
             f"'{host}' imitates {brand} (the real domain is {real})",
             f"«{host}» подделка под {brand} (настоящий сайт: {real})",
-        ))
+        ), "lookalike_site")
 
     if host.startswith("xn--") or ".xn--" in host:
         report.add(0.5, Reason(
             "Domen punycode (xn--) bilan yozilgan — harflar almashtirilgan bo'lishi mumkin",
             "Punycode (xn--) domain: letters may be swapped for lookalikes",
             "Домен в punycode (xn--): буквы могут быть подменены похожими",
-        ))
+        ), "punycode")
     if _is_ip(host):
         report.add(0.5, Reason(
             "Havola domen emas, to'g'ridan-to'g'ri IP manzilga olib boradi",
             "Link points to a raw IP address instead of a domain",
             "Ссылка ведёт на IP-адрес вместо обычного домена",
-        ))
+        ), "ip_link")
     if host in SHORTENERS:
         report.add(0.3, Reason(
             f"Qisqartirilgan havola ({host}) — asl manzil yashirilgan",
             f"Shortened link ({host}) hides the real destination",
             f"Сокращённая ссылка ({host}) скрывает настоящий адрес",
-        ))
+        ), "shortener")
     tld = host.rsplit(".", 1)[-1]
     if tld in SUSPICIOUS_TLDS:
         report.add(0.3, Reason(
             f".{tld} domen zonasi firibgarlikda ko'p ishlatiladi",
             f"The .{tld} domain zone is common in scams",
             f"Доменная зона .{tld} часто используется мошенниками",
-        ))
+        ), "risky_tld")
     if host.count(".") >= 4:
         report.add(0.2, Reason(
             "Domen juda ko'p qismdan iborat (subdomenlar zanjiri)",
             "Unusually long chain of subdomains",
             "Подозрительно длинная цепочка поддоменов",
-        ))
+        ), "subdomains")
     if "@" in url.split("//", 1)[-1].split("/", 1)[0]:
         report.add(0.5, Reason(
             "Havolada '@' belgisi bor — haqiqiy manzil yashirilgan",
             "'@' in the link hides the real destination",
             "Символ «@» в ссылке скрывает настоящий адрес",
-        ))
+        ), "at_trick")
     if re.search(r"(?i)\.apk(?:$|[?#])", url):
         report.add(0.8, Reason(
             "Havola .apk faylga olib boradi — telefoningizga zararli ilova o'rnatilishi mumkin",
             "Link downloads an .apk file that may install malware",
             "Ссылка скачивает .apk-файл, который может установить вирус",
-        ))
+        ), "apk_link")
     if re.search(r"(?i)(login|verify|secure|bonus|prize|sovg|yutuq|karta|card|oplata|pay)", host):
         report.add(0.2, Reason(
             "Domen nomida 'bonus/karta/to'lov/verify' kabi so'zlar bor",
             "Domain name contains bait words like bonus/card/pay/verify",
             "В названии домена слова-приманки: bonus/card/pay/verify",
-        ))
+        ), "bait_domain")
     if url.lower().startswith("http://") and report.score > 0:
         report.add(0.1, Reason(
             "Himoyalanmagan (http) ulanish",
             "Unencrypted (http) connection",
             "Незащищённое (http) соединение",
-        ))
+        ), "http")
     return report
 
 

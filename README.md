@@ -26,6 +26,21 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 - 🪪 **Auto profile**: description, short description and command menus in 3 languages are set on startup
 - 🎨 `assets/`: logo and welcome picture (SVG sources + PNG)
 
+## 🌐 Scam Radar (public website)
+
+The bot also serves a public page that shows what ScamGuard is catching across Uzbekistan:
+a 30-day trend, the most common scam types, and recently detected fake sites.
+It's in Uzbek, Russian and English, with light and dark themes, and it works on phones.
+
+- **Privacy by design:** only aggregated counts, scam categories and fake-site domains are published. Message text,
+  users, phone numbers and Telegram accounts are never published (enforced by `tests/test_radar.py`).
+- Fake sites are **defanged** (`el-yurt-grant[.]xyz`), so nobody opens them by accident.
+- Total counters appear only after 100 checks (`SCAMGUARD_SHOW_TOTALS_FROM`).
+- Security: a strict Content-Security-Policy (the inline script is pinned by its SHA-256 hash), no third-party scripts
+  or fonts, `X-Frame-Options: DENY`, `nosniff`.
+- Endpoints: `/` (page), `/api/radar.json` (data, cached 30s), `/healthz`.
+- On Railway: **Settings → Networking → Generate Domain**. The web server listens on `$PORT` (default 8080).
+
 ## How it works
 
 ```
@@ -49,7 +64,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 117 tests incl. a simulated Telegram chat and real OCR
+python -m pytest                   # 130 tests incl. a simulated Telegram chat and real OCR
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 

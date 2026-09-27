@@ -43,6 +43,14 @@ class Storage:
                 reporter TEXT NOT NULL, ts TEXT NOT NULL,
                 PRIMARY KEY (ind, reporter)
             );
+            CREATE TABLE IF NOT EXISTS daily_cat (
+                day TEXT NOT NULL, category TEXT NOT NULL, n INTEGER DEFAULT 0,
+                PRIMARY KEY (day, category)
+            );
+            CREATE TABLE IF NOT EXISTS flagged_domains (
+                domain TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+                hits INTEGER DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 text TEXT NOT NULL, label INTEGER NOT NULL, predicted TEXT NOT NULL,
@@ -87,6 +95,56 @@ class Storage:
             f"UPDATE daily SET checks = checks + 1, {level} = {level} + 1 WHERE day = ?", (today,)
         )
         self.db.commit()
+
+    # ---- radar (public, aggregated) ----
+    def record_category(self, category: str) -> None:
+        today = date.today().isoformat()
+        self.db.execute("INSERT OR IGNORE INTO daily_cat (day, category) VALUES (?, ?)", (today, category))
+        self.db.execute("UPDATE daily_cat SET n = n + 1 WHERE day = ? AND category = ?", (today, category))
+        self.db.commit()
+
+    def record_domain(self, domain: str) -> None:
+        today = date.today().isoformat()
+        self.db.execute(
+            "INSERT INTO flagged_domains (domain, first_seen, last_seen, hits) VALUES (?, ?, ?, 1) "
+            "ON CONFLICT(domain) DO UPDATE SET last_seen = excluded.last_seen, hits = hits + 1",
+            (domain, today, today),
+        )
+        self.db.commit()
+
+    def daily_series(self, days: int) -> list[tuple[str, int, int]]:
+        """(day, checks, scams) for the last `days` days, oldest first, zero-filled."""
+        from datetime import timedelta
+        today = date.today()
+        rows = dict((d, (c, s + x)) for d, c, s, x in self.db.execute(
+            "SELECT day, checks, suspicious, dangerous FROM daily WHERE day >= ?",
+            ((today - timedelta(days=days - 1)).isoformat(),)))
+        out = []
+        for i in range(days - 1, -1, -1):
+            d = (today - timedelta(days=i)).isoformat()
+            c, s = rows.get(d, (0, 0))
+            out.append((d, c, s))
+        return out
+
+    def category_counts(self, since: str) -> list[tuple[str, int]]:
+        return self.db.execute(
+            "SELECT category, SUM(n) FROM daily_cat WHERE day >= ? GROUP BY category ORDER BY SUM(n) DESC", (since,)
+        ).fetchall()
+
+    def recent_domains(self, limit: int) -> list[tuple[str, str, str, int]]:
+        return self.db.execute(
+            "SELECT domain, first_seen, last_seen, hits FROM flagged_domains ORDER BY last_seen DESC, hits DESC LIMIT ?",
+            (limit,)).fetchall()
+
+    def community_sites(self, threshold: int, limit: int) -> list[tuple[str, str, int]]:
+        """Sites reported by at least `threshold` different people: (preview, first report day, reporters)."""
+        return self.db.execute(
+            "SELECT preview, MIN(substr(ts, 1, 10)), COUNT(*) FROM reports WHERE kind = 'site' "
+            "GROUP BY ind HAVING COUNT(*) >= ? ORDER BY MAX(ts) DESC LIMIT ?", (threshold, limit)).fetchall()
+
+    def first_day(self) -> str | None:
+        row = self.db.execute("SELECT MIN(day) FROM daily").fetchone()
+        return row[0] if row else None
 
     def stats(self, threshold: int = 2) -> dict[str, int]:
         users = self.db.execute("SELECT COUNT(*) FROM users").fetchone()[0]

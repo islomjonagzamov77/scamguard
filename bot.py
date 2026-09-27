@@ -45,12 +45,13 @@ from aiogram.types import (
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
-from scamguard import blocklist, ocr
+from scamguard import blocklist, ocr, radar
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import check_file
 from scamguard.reasons import Reason
 from scamguard.i18n import LANG_NAMES, LANGS, SCAM_TYPES, all_variants, guess_lang, t
 from scamguard.storage import Storage
+from scamguard.web import server as radar_web
 
 try:
     from dotenv import load_dotenv
@@ -94,6 +95,17 @@ class Result:
     text: str = ""
     forward: tuple[str, str] | None = None
     trust: list = field(default_factory=list)
+    signals: list = field(default_factory=list)   # for the public radar (scam category)
+    domains: list = field(default_factory=list)   # fake-site domains found (for the radar)
+
+
+def record(r: "Result") -> None:
+    """Count a check in the anonymous stats and the public radar (category + fake-site domains only)."""
+    storage.record_check(r.level.value)
+    if r.level != Level.SAFE:
+        storage.record_category(radar.primary_category(r.signals))
+        for d in r.domains:
+            storage.record_domain(d)
 
 
 _pending: OrderedDict[str, Pending] = OrderedDict()           # button key -> Pending
@@ -245,7 +257,8 @@ def evaluate_text(text: str) -> Result:
         score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
         level = max(level, level_for(score), key=LEVEL_ORDER.index)
     trust = verdict.trust if level == Level.SAFE else []
-    return Result(level, reasons, score, None, text, None, trust)
+    signals = list(verdict.signals) + (["community"] if hits else [])
+    return Result(level, reasons, score, None, text, None, trust, signals, radar.scam_domains(verdict.links))
 
 
 def evaluate(message: Message, extra_text: str = "") -> Result | None:
@@ -276,7 +289,13 @@ def evaluate(message: Message, extra_text: str = "") -> Result | None:
         score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
         level = max(level, level_for(score), key=LEVEL_ORDER.index)
     trust = verdict.trust if (verdict and level == Level.SAFE) else []
-    return Result(level, reasons, score, file_level, text, forward, trust)
+    signals = list(verdict.signals) if verdict else []
+    if file_level == Level.DANGEROUS:
+        signals.insert(0, "file_program")
+    if hits:
+        signals.append("community")
+    domains = radar.scam_domains(verdict.links) if verdict else []
+    return Result(level, reasons, score, file_level, text, forward, trust, signals, domains)
 
 
 def render(lang: str, r: Result, file_name: str | None = None, source: str | None = None, ocr_text: str = "") -> str:
@@ -387,7 +406,7 @@ async def on_check(message: Message) -> None:
     if result is None:
         await message.reply(t("empty", lang))
         return
-    storage.record_check(result.level.value)
+    record(result)
     doc = message.document
     reply = render(lang, result, doc.file_name if doc else None, forward_source(message), ocr_text)
     markup = verdict_keyboard(remember(result), lang) if (result.text or result.forward) else None
@@ -412,7 +431,7 @@ async def group_check(message: Message) -> None:
     if result is None:
         await message.reply(t("empty", lang))
         return
-    storage.record_check(result.level.value)
+    record(result)
     doc = target.document
     await target.reply(render(lang, result, doc.file_name if doc else None), disable_web_page_preview=True)
 
@@ -447,7 +466,7 @@ async def group_scan(message: Message) -> None:
     result = evaluate(message)
     if result is None:
         return
-    storage.record_check(result.level.value)
+    record(result)
     if result.level != Level.DANGEROUS:
         return
     lang = lang_of(message.from_user)
@@ -502,7 +521,7 @@ async def on_inline(query: InlineQuery) -> None:
 async def on_inline_chosen(chosen: ChosenInlineResult) -> None:
     """Counts inline checks in the stats (needs /setinlinefeedback in @BotFather)."""
     if chosen.result_id != "help":
-        storage.record_check(evaluate_text(chosen.query).level.value)
+        record(evaluate_text(chosen.query))
 
 
 # ======================= callbacks =======================
@@ -659,6 +678,10 @@ async def main() -> None:
     BOT_USERNAME = me.username
     await setup_profile(bot)
     dp.include_routers(private, groups)
+    # Public Scam Radar website on $PORT (Railway: Settings -> Networking -> Generate Domain)
+    web_app = radar_web.build_app(lambda: storage, lambda: BOT_USERNAME, blocklist.REPORT_THRESHOLD)
+    await radar_web.start(web_app)
+    log.info("Scam Radar website listening on port %s", os.getenv("PORT", "8080"))
     log.info("ScamGuard bot started as @%s", me.username)
     await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 

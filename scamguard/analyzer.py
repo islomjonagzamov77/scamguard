@@ -41,6 +41,7 @@ class Verdict:
     link_score: float = 0.0
     model_score: float | None = None
     trust: list[Reason] = field(default_factory=list)
+    signals: list[str] = field(default_factory=list)   # names of the rules/link checks that counted
 
     def to_dict(self, lang: str = "uz") -> dict:
         return {
@@ -118,4 +119,9 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
                 f"Ссылка ведёт на официальный сайт: {sites}",
             ))
 
-    return Verdict(score, level, reasons, links, rule_score, link_score, p, trust)
+    signals = [r.name for r in sorted(counted, key=lambda r: -r.weight)]
+    for link in links:
+        signals.extend(link.signals)
+    if m > 0:
+        signals.append("ai_model")
+    return Verdict(score, level, reasons, links, rule_score, link_score, p, trust, signals)
