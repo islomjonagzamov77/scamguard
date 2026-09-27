@@ -35,7 +35,9 @@ T: dict[str, dict[str, str]] = {
     "btn_sos": {"uz": "🆘 Aldandim — nima qilay?", "ru": "🆘 Меня обманули", "en": "🆘 I got scammed"},
     "btn_types": {"uz": "📚 Firibgarlik turlari", "ru": "📚 Виды мошенничества", "en": "📚 Scam types"},
     "btn_stats": {"uz": "📊 Statistika", "ru": "📊 Статистика", "en": "📊 Statistics"},
-    "btn_lang": {"uz": "🌐 Til", "ru": "🌐 Язык", "en": "🌐 Language"},
+    "btn_lang": {"uz": "🌍 Til", "ru": "🌍 Язык", "en": "🌍 Language"},
+    "btn_radar": {"uz": "🌐 Firibgarlik radari", "ru": "🌐 Радар мошенничества", "en": "🌐 Scam Radar"},
+    "menu_radar": {"uz": "Radar", "ru": "Радар", "en": "Radar"},
     "btn_share": {"uz": "📤 Do'stlarga ulashish", "ru": "📤 Поделиться", "en": "📤 Share"},
     # ---------- how to check ----------
     "how_to_check": {
@@ -341,8 +343,7 @@ T: dict[str, dict[str, str]] = {
     },
     "bot_description": {
         "uz": "🛡 ScamGuard — firibgarlikni aniqlovchi sun'iy intellekt yordamchisi.\n\n"
-              "Shubhali xabar, havola, fayl yoki skrinshotni yuboring — bir necha soniyada tekshirib, "
-              "xavf darajasi va sababini tushuntirib beraman.\n\n"
+              "Shubhali xabar, havola, fayl yoki skrinshotni yuboring — tekshirib, xavfi va sababini tushuntiraman.\n\n"
               "🔍 Nimalarni aniqlayman:\n"
               "• Soxta yutuq va «bank xodimi» firibgarliklari\n"
               "• OLX va to'lov firibgarliklari\n"

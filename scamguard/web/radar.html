@@ -722,6 +722,19 @@ footer p { margin: 0; max-width: 620px; }
       .finally(function () { main.classList.remove("state-busy"); });
   }
 
+  /* ---------- Telegram Mini App: tell Telegram we're ready and open full height ----------
+     (Telegram's documented web-events protocol; no external script needed) */
+  function tgPost(type, data) {
+    var payload = JSON.stringify({ eventType: type, eventData: data || {} });
+    try {
+      if (window.TelegramWebviewProxy) window.TelegramWebviewProxy.postEvent(type, JSON.stringify(data || {}));
+      else if (window.external && "notify" in window.external) window.external.notify(payload);
+      else if (window.parent !== window) window.parent.postMessage(payload, "https://web.telegram.org");
+    } catch (e) {}
+  }
+  tgPost("web_app_ready");
+  tgPost("web_app_expand");
+
   state.lang = pickLang();
   applyLang();
   load();

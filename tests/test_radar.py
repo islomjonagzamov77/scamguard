@@ -83,7 +83,8 @@ def test_web_routes_and_security_headers(env):
     assert status == 200 and "https://t.me/scamguard_uzbbot" in page and "{{" not in page
     csp = headers["Content-Security-Policy"]
     assert "default-src 'none'" in csp and "script-src 'sha256-" in csp and "unsafe-inline" not in csp.split("style-src")[0]
-    assert headers["X-Frame-Options"] == "DENY" and headers["X-Content-Type-Options"] == "nosniff"
+    assert "frame-ancestors https://web.telegram.org https://*.telegram.org" in csp   # only Telegram may embed it
+    assert headers["X-Content-Type-Options"] == "nosniff"
     status, headers, body = get(app, "/api/radar.json")
     assert status == 200 and headers["Content-Type"].startswith("application/json")
     assert set(json.loads(body)) >= {"daily", "categories", "sites", "guide", "totals", "updated"}

@@ -55,7 +55,6 @@ def build_app(get_storage, get_bot_username, report_threshold: int) -> web.Appli
         resp = await handler(request)
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         return resp
 
@@ -66,7 +65,8 @@ def build_app(get_storage, get_bot_username, report_threshold: int) -> web.Appli
             page_cache["page"], page_cache["hash"] = render_page(user)
         csp = ("default-src 'none'; img-src 'self' data:; connect-src 'self'; "
                f"script-src {page_cache['hash']}; style-src 'unsafe-inline'; base-uri 'none'; "
-               "form-action 'none'; frame-ancestors 'none'")
+               # only Telegram may embed the page (Mini App on Telegram Web); everyone else is blocked
+               "form-action 'none'; frame-ancestors https://web.telegram.org https://*.telegram.org")
         return web.Response(text=page_cache["page"], content_type="text/html", charset="utf-8",
                             headers={"Content-Security-Policy": csp, "Cache-Control": "public, max-age=300"})
 

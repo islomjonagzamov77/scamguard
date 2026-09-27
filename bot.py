@@ -41,7 +41,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNotFound, TelegramUna
 from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandStart
 from aiogram.types import (
     BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatMemberUpdated,
-    ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery,
+    ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, MenuButtonWebApp, WebAppInfo,
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
@@ -111,6 +111,9 @@ def record(r: "Result") -> None:
 _pending: OrderedDict[str, Pending] = OrderedDict()           # button key -> Pending
 _hits: dict[int, deque] = defaultdict(deque)                   # user id -> recent check times
 BOT_USERNAME = ""
+# Public Scam Radar address. Railway sets RAILWAY_PUBLIC_DOMAIN automatically once a domain is generated.
+_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+RADAR_URL = (os.getenv("SCAMGUARD_RADAR_URL") or (f"https://{_domain}" if _domain else "")).rstrip("/")
 
 
 # ======================= helpers =======================
@@ -134,8 +137,11 @@ def rate_limited(user_id: int) -> bool:
 
 def main_menu(lang: str) -> ReplyKeyboardMarkup:
     b = lambda key: KeyboardButton(text=t(key, lang))  # noqa: E731
+    last_row = [b("btn_lang")]
+    if RADAR_URL:   # opens the Scam Radar website inside Telegram as a Mini App
+        last_row.insert(0, KeyboardButton(text=t("btn_radar", lang), web_app=WebAppInfo(url=f"{RADAR_URL}/?lang={lang}")))
     return ReplyKeyboardMarkup(
-        keyboard=[[b("btn_check"), b("btn_types")], [b("btn_sos"), b("btn_share")], [b("btn_lang")]],
+        keyboard=[[b("btn_check"), b("btn_types")], [b("btn_sos"), b("btn_share")], last_row],
         resize_keyboard=True,
         input_field_placeholder="📩 Forward…",
     )
@@ -340,8 +346,11 @@ async def cmd_start(message: Message) -> None:
                          reply_markup=main_menu(lang))
 
 
+LEGACY_LANG_BUTTONS = {"🌐 Til", "🌐 Язык", "🌐 Language"}   # labels from older menus still work
+
+
 @private.message(Command("lang"))
-@private.message(F.text.in_(all_variants("btn_lang")))
+@private.message(F.text.in_(all_variants("btn_lang") | LEGACY_LANG_BUTTONS))
 async def cmd_lang(message: Message) -> None:
     await message.answer(t("choose_lang", lang_of(message.from_user)), reply_markup=lang_keyboard())
 
@@ -646,12 +655,30 @@ async def setup_profile(bot: Bot) -> None:
                 scope=BotCommandScopeAllGroupChats(), language_code=code,
             )
             # The bio is shown in Uzbek to everyone, whatever language their Telegram app uses.
-            if (await bot.get_my_description(language_code=code)).description != t("bot_description", "uz"):
-                await bot.set_my_description(t("bot_description", "uz"), language_code=code)
+            description = bot_description()
+            if (await bot.get_my_description(language_code=code)).description != description:
+                await bot.set_my_description(description, language_code=code)
             if (await bot.get_my_short_description(language_code=code)).short_description != t("bot_short", "uz"):
                 await bot.set_my_short_description(t("bot_short", "uz"), language_code=code)
         except TelegramBadRequest as e:
             log.warning("Could not update bot profile for %s: %s", lang, e)
+    if RADAR_URL:
+        try:   # the chat's Menu button opens the Scam Radar Mini App
+            await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(
+                text=t("menu_radar", "uz"), web_app=WebAppInfo(url=RADAR_URL)))
+        except TelegramBadRequest as e:
+            log.warning("Could not set the Mini App menu button: %s", e)
+
+
+def bot_description() -> str:
+    """Uzbek bio, with the Scam Radar link when there is room (Telegram limit: 512 characters)."""
+    text = t("bot_description", "uz")
+    if RADAR_URL:
+        head, sep, tail = text.rpartition("\n\n")
+        with_link = f"{head}\n🌐 Radar: {RADAR_URL.removeprefix('https://')}{sep}{tail}"
+        if len(with_link) <= 512:
+            return with_link
+    return text
 
 
 async def main() -> None:

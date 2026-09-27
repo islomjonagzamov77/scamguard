@@ -365,3 +365,53 @@ def test_bio_is_uzbek_for_every_language():
     shorts = [c.short_description for c in s.calls if isinstance(c, SetMyShortDescription)]
     assert len(descs) == 4 and all("firibgarlikni aniqlovchi" in d for d in descs)
     assert len(shorts) == 4 and all("Firibgarlikdan himoya" in x for x in shorts)
+
+
+# ---------------- Scam Radar Mini App ----------------
+def test_menu_opens_radar_mini_app(monkeypatch):
+    import bot as botmod
+    monkeypatch.setattr(botmod, "RADAR_URL", "https://scamguard-production-727d.up.railway.app")
+    buttons = [b for row in botmod.main_menu("uz").keyboard for b in row]
+    radar = [b for b in buttons if b.web_app]
+    assert len(radar) == 1 and radar[0].text == "🌐 Firibgarlik radari"
+    assert radar[0].web_app.url == "https://scamguard-production-727d.up.railway.app/?lang=uz"
+
+
+def test_menu_without_radar_url(monkeypatch):
+    import bot as botmod
+    monkeypatch.setattr(botmod, "RADAR_URL", "")
+    assert not [b for row in botmod.main_menu("en").keyboard for b in row if b.web_app]
+
+
+def test_old_language_button_still_works(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "uz")
+    assert "Tilni tanlang" in feed({"message": msg("🌐 Til")})
+
+
+def test_bio_contains_radar_link_within_limit(monkeypatch):
+    import bot as botmod
+    monkeypatch.setattr(botmod, "RADAR_URL", "https://scamguard-production-727d.up.railway.app")
+    d = botmod.bot_description()
+    assert "🌐 Radar: scamguard-production-727d.up.railway.app" in d and len(d) <= 512
+    assert d.endswith("Boshlash uchun «Start» tugmasini bosing 👇")
+
+
+def test_menu_button_is_set_to_mini_app(monkeypatch):
+    import bot as botmod
+    from aiogram.methods import GetMyDescription, GetMyShortDescription, SetChatMenuButton
+    from aiogram.types import BotDescription, BotShortDescription
+    monkeypatch.setattr(botmod, "RADAR_URL", "https://scamguard-production-727d.up.railway.app")
+
+    class S(FakeSession):
+        async def make_request(self, bot, method, timeout=None):
+            if isinstance(method, GetMyDescription):
+                self.calls.append(method); return BotDescription(description="")
+            if isinstance(method, GetMyShortDescription):
+                self.calls.append(method); return BotShortDescription(short_description="")
+            return await super().make_request(bot, method, timeout)
+
+    s = S()
+    asyncio.run(botmod.setup_profile(Bot("123456:" + "A" * 35, session=s)))
+    menu = [c for c in s.calls if isinstance(c, SetChatMenuButton)]
+    assert len(menu) == 1 and menu[0].menu_button.web_app.url == "https://scamguard-production-727d.up.railway.app"
