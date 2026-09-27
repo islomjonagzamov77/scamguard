@@ -337,3 +337,31 @@ def test_elyurt_channel_post_is_safe_with_trust_signal(env):
     assert "🟢" in reply and "past" in reply
     assert "AI model" not in reply and "Nima uchun" not in reply
     assert "Ishonch belgilari" in reply and "el-yurt.uz" in reply
+
+
+def test_menu_has_no_stats_button():
+    import bot as botmod
+    for lang in ("uz", "ru", "en"):
+        texts = [b.text for row in botmod.main_menu(lang).keyboard for b in row]
+        assert not any("📊" in x for x in texts)
+
+
+def test_bio_is_uzbek_for_every_language():
+    import bot as botmod
+    from aiogram.methods import GetMyDescription, GetMyShortDescription, SetMyDescription, SetMyShortDescription
+    from aiogram.types import BotDescription, BotShortDescription
+
+    class S(FakeSession):
+        async def make_request(self, bot, method, timeout=None):
+            if isinstance(method, GetMyDescription):
+                self.calls.append(method); return BotDescription(description="")
+            if isinstance(method, GetMyShortDescription):
+                self.calls.append(method); return BotShortDescription(short_description="")
+            return await super().make_request(bot, method, timeout)
+
+    s = S()
+    asyncio.run(botmod.setup_profile(Bot("123456:" + "A" * 35, session=s)))
+    descs = [c.description for c in s.calls if isinstance(c, SetMyDescription)]
+    shorts = [c.short_description for c in s.calls if isinstance(c, SetMyShortDescription)]
+    assert len(descs) == 4 and all("firibgarlikni aniqlovchi" in d for d in descs)
+    assert len(shorts) == 4 and all("Firibgarlikdan himoya" in x for x in shorts)

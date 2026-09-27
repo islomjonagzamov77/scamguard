@@ -123,7 +123,7 @@ def rate_limited(user_id: int) -> bool:
 def main_menu(lang: str) -> ReplyKeyboardMarkup:
     b = lambda key: KeyboardButton(text=t(key, lang))  # noqa: E731
     return ReplyKeyboardMarkup(
-        keyboard=[[b("btn_check"), b("btn_types")], [b("btn_sos"), b("btn_stats")], [b("btn_share"), b("btn_lang")]],
+        keyboard=[[b("btn_check"), b("btn_types")], [b("btn_sos"), b("btn_share")], [b("btn_lang")]],
         resize_keyboard=True,
         input_field_placeholder="📩 Forward…",
     )
@@ -614,7 +614,7 @@ async def on_error(event: ErrorEvent) -> bool:
 
 async def setup_profile(bot: Bot) -> None:
     """Set the description, short description and command menu in every language."""
-    private_cmds = ["start", "help", "sos", "types", "stats", "lang", "privacy"]
+    private_cmds = ["start", "help", "sos", "types", "lang", "privacy"]
     for code in (None, *LANGS):
         lang = code or "uz"
         try:
@@ -626,10 +626,11 @@ async def setup_profile(bot: Bot) -> None:
                 [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "help")],
                 scope=BotCommandScopeAllGroupChats(), language_code=code,
             )
-            if (await bot.get_my_description(language_code=code)).description != t("bot_description", lang):
-                await bot.set_my_description(t("bot_description", lang), language_code=code)
-            if (await bot.get_my_short_description(language_code=code)).short_description != t("bot_short", lang):
-                await bot.set_my_short_description(t("bot_short", lang), language_code=code)
+            # The bio is shown in Uzbek to everyone, whatever language their Telegram app uses.
+            if (await bot.get_my_description(language_code=code)).description != t("bot_description", "uz"):
+                await bot.set_my_description(t("bot_description", "uz"), language_code=code)
+            if (await bot.get_my_short_description(language_code=code)).short_description != t("bot_short", "uz"):
+                await bot.set_my_short_description(t("bot_short", "uz"), language_code=code)
         except TelegramBadRequest as e:
             log.warning("Could not update bot profile for %s: %s", lang, e)
 
