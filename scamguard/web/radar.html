@@ -91,7 +91,7 @@ a { color: inherit; }
   font: 600 13px/1 var(--font); padding: 7px 10px; border-radius: 7px; cursor: pointer;
 }
 .langs button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.14); color: #fff; }
-.langs button:focus-visible, .btn:focus-visible { outline: 2px solid var(--brand-mint); outline-offset: 2px; }
+.langs button:focus-visible, .btn:focus-visible, .about summary:focus-visible { outline: 2px solid var(--brand-mint); outline-offset: 2px; }
 .btn {
   display: inline-flex; align-items: center; gap: 8px; text-decoration: none; white-space: nowrap;
   font: 650 15px/1 var(--font); padding: 12px 18px; border-radius: 12px; transition: transform .15s ease, box-shadow .15s ease;
@@ -99,34 +99,28 @@ a { color: inherit; }
 .btn:hover { transform: translateY(-1px); }
 .btn-primary { background: linear-gradient(135deg, var(--brand-mint), var(--brand-sky)); color: #041222;
   box-shadow: 0 6px 20px rgba(26, 159, 224, 0.28); }
-.btn-ghost { color: #fff; border: 1px solid rgba(255, 255, 255, 0.22); }
-.nav .btn { padding: 10px 14px; font-size: 14px; }
 
 /* ---------- hero ---------- */
 .hero {
   position: relative; overflow: hidden; color: #fff;
   background: radial-gradient(1200px 520px at 20% -10%, #1d5285 0%, rgba(21, 64, 107, 0) 60%),
               linear-gradient(180deg, var(--navy-1) 0%, #0b2140 100%);
-  padding: 72px 0 120px;
+  padding: 56px 0 64px;
 }
 .hero .rings { position: absolute; right: -120px; top: -80px; width: 620px; height: 620px; opacity: .55; pointer-events: none; }
-.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 13px/1 var(--font); color: #b9f5df;
-  background: rgba(60, 240, 180, 0.1); border: 1px solid rgba(60, 240, 180, 0.22); padding: 7px 12px; border-radius: 999px; }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-mint); box-shadow: 0 0 0 0 rgba(60, 240, 180, .6); animation: pulse 2s infinite; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(60, 240, 180, .55); } 70% { box-shadow: 0 0 0 10px rgba(60, 240, 180, 0); } 100% { box-shadow: 0 0 0 0 rgba(60, 240, 180, 0); } }
-@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } .btn { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 .hero h1 { font-size: clamp(34px, 5.4vw, 58px); line-height: 1.05; letter-spacing: -0.025em; margin: 22px 0 16px; max-width: 760px; font-weight: 750; }
 .hero h1 .grad { background: linear-gradient(90deg, var(--brand-mint), #7cc8ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero p.lead { font-size: clamp(17px, 2vw, 20px); color: #c6d3e6; max-width: 640px; margin: 0 0 30px; }
+.hero p.lead { font-size: clamp(17px, 2vw, 20px); color: #c6d3e6; max-width: 620px; margin: 0 0 28px; }
+.hero h1 { margin-top: 0; }
+.cta[hidden] { display: none; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; }
-.trust { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 30px; color: #9fb2cc; font-size: 14px; }
-.trust span { display: inline-flex; align-items: center; gap: 8px; }
-.trust svg { width: 16px; height: 16px; color: var(--brand-mint); flex: none; }
 
 /* ---------- tiles ---------- */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: -64px; position: relative; z-index: 2; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+.tiles[hidden] { display: none; }
 .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 22px; }
-.tile .label { color: var(--muted); font-size: 14px; font-weight: 550; }
+.tile .label { color: var(--muted); font-size: 14px; font-weight: 550; overflow-wrap: anywhere; hyphens: auto; }
 .tile .value { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; line-height: 1.1; }
 .tile .sub { color: var(--ink-2); font-size: 13px; margin-top: 6px; }
 
@@ -139,7 +133,7 @@ section.block { margin-top: 56px; }
 .card h3 { margin: 0 0 4px; font-size: 18px; letter-spacing: -0.01em; }
 .card .hint { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
 .grid-2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
-.grid-2 > *, .site > div, .tiles > *, .guide > *, .steps > * { min-width: 0; }
+.grid-2 > *, .site > div, .tiles > *, .guide > * { min-width: 0; }
 .state-busy { opacity: .6; transition: opacity .2s; }
 
 /* legend */
@@ -205,51 +199,39 @@ details.table-view summary { cursor: pointer; color: var(--ink-2); font-size: 14
 .g-card .flag { margin-top: auto; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 13.5px; color: var(--ink); }
 .g-card .flag b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
 
-/* how it works */
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
-.step { position: relative; padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-.step .num { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 750;
-  background: linear-gradient(135deg, var(--brand-mint), var(--brand-sky)); color: #041222; margin-bottom: 12px; }
-.step h4 { margin: 0 0 6px; font-size: 17px; }
-.step p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
 
-/* banner + cta band + footer */
+/* banner + about + footer */
 .banner { display: none; margin-top: 16px; padding: 12px 16px; border-radius: 12px; background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; }
 .banner.on { display: block; }
-.band { margin-top: 64px; border-radius: 24px; padding: 40px; color: #fff; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px;
-  background: radial-gradient(600px 300px at 90% 0%, #1d5285 0%, rgba(21, 64, 107, 0) 70%), linear-gradient(135deg, var(--navy-1), #0e2a4f); }
-.band h2 { margin: 0 0 6px; font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -0.02em; }
-.band p { margin: 0; color: #c6d3e6; max-width: 560px; }
-footer { margin: 56px 0 0; padding: 28px 0 40px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+.about details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+.about summary { cursor: pointer; font-weight: 650; color: var(--ink); }
+.about p { margin: 12px 0 2px; color: var(--ink-2); font-size: 15px; max-width: 760px; }
+footer { margin: 40px 0 0; padding: 22px 0 32px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
 footer a { color: var(--ink-2); }
 footer p { margin: 0; max-width: 620px; }
 
 @media (max-width: 960px) {
-  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .grid-2 { grid-template-columns: 1fr; }
   .guide { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
   .nav .wrap { gap: 10px; }
-  .nav .btn .long { display: none; }
-  .nav .btn { padding: 10px 11px; }
   .brand .tag { display: none; }
   .langs button { padding: 7px 8px; }
-  .hero { padding: 48px 0 104px; }
+  .hero { padding: 36px 0 40px; }
   .hero .rings { width: 420px; height: 420px; right: -180px; top: -60px; }
   .tile { padding: 16px; }
   .tile .value { font-size: 26px; }
-  .steps, .guide { grid-template-columns: 1fr; }
-  .band { padding: 28px 22px; }
+  .guide { grid-template-columns: 1fr; }
   .chart svg { height: 240px; }
   .bar-row { grid-template-columns: 1fr; gap: 6px; }
   .site { grid-template-columns: auto 1fr; }
   .site .badge { grid-column: 2; justify-self: start; }
 }
 @media (max-width: 380px) {
-  .nav .btn { display: none; }               /* the hero already has the same call to action */
   .tiles { gap: 10px; }
   .tile { padding: 14px; min-width: 0; }
   .tile .label { font-size: 13px; overflow-wrap: anywhere; }
@@ -273,10 +255,6 @@ footer p { margin: 0; max-width: 620px; }
       <button type="button" data-lang="ru">RU</button>
       <button type="button" data-lang="en">EN</button>
     </div>
-    <a class="btn btn-primary" href="https://t.me/{{BOT}}" rel="noopener">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.5c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.2 13 1.4 11.5c-1-.3-1.1-1 .2-1.5l18.8-7.2c.9-.3 1.7.2 1.5 1.5Z"/></svg>
-      <span class="long" data-i18n="nav_cta"></span>
-    </a>
   </div>
 </nav>
 
@@ -287,23 +265,19 @@ footer p { margin: 0; max-width: 620px; }
     <path d="M300 300 L300 10" stroke-opacity=".25" stroke-width="2"/>
   </svg>
   <div class="wrap" style="position:relative">
-    <span class="eyebrow"><span class="live-dot" aria-hidden="true"></span><span data-i18n="live"></span> · <span id="updated">—</span></span>
     <h1><span data-i18n="h1a"></span> <span class="grad" data-i18n="h1b"></span></h1>
     <p class="lead" data-i18n="lead"></p>
-    <div class="cta">
-      <a class="btn btn-primary" href="https://t.me/{{BOT}}" rel="noopener" data-i18n="cta_check"></a>
-      <a class="btn btn-ghost" href="{{GITHUB}}" rel="noopener" data-i18n="cta_code"></a>
-    </div>
-    <div class="trust">
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="trust_1"></span></span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="trust_2"></span></span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg><span data-i18n="trust_3"></span></span>
+    <div class="cta" id="hero-cta">
+      <a class="btn btn-primary" href="https://t.me/{{BOT}}" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.5c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.2 13 1.4 11.5c-1-.3-1.1-1 .2-1.5l18.8-7.2c.9-.3 1.7.2 1.5 1.5Z"/></svg>
+        <span data-i18n="cta_check"></span>
+      </a>
     </div>
   </div>
 </header>
 
 <main class="wrap" id="main">
-  <div class="tiles" id="tiles" aria-live="polite"></div>
+  <div class="tiles" id="tiles" aria-live="polite" hidden></div>
   <div class="banner" id="banner" role="status"></div>
 
   <section class="block" aria-labelledby="trend-h">
@@ -343,25 +317,17 @@ footer p { margin: 0; max-width: 620px; }
     <div class="guide" id="guide"></div>
   </section>
 
-  <section class="block" aria-labelledby="how-h">
-    <div class="block-head"><div><h2 id="how-h" data-i18n="how_h"></h2></div></div>
-    <div class="steps">
-      <div class="step"><div class="num">1</div><h4 data-i18n="how_1h"></h4><p data-i18n="how_1p"></p></div>
-      <div class="step"><div class="num">2</div><h4 data-i18n="how_2h"></h4><p data-i18n="how_2p"></p></div>
-      <div class="step"><div class="num">3</div><h4 data-i18n="how_3h"></h4><p data-i18n="how_3p"></p></div>
-    </div>
+  <section class="block about" aria-labelledby="about-h">
+    <details>
+      <summary id="about-h" data-i18n="about_h"></summary>
+      <p data-i18n="about_p"></p>
+    </details>
   </section>
-
-  <div class="band">
-    <div><h2 data-i18n="band_h"></h2><p data-i18n="band_p"></p></div>
-    <a class="btn btn-primary" href="https://t.me/{{BOT}}" rel="noopener" data-i18n="cta_check"></a>
-  </div>
 </main>
 
 <footer>
   <div class="wrap">
-    <p><strong>ScamGuard</strong> — <span data-i18n="footer_privacy"></span></p>
-    <p><a href="{{GITHUB}}" rel="noopener" data-i18n="footer_code"></a> · <span data-i18n="footer_by"></span></p>
+    <p>© 2026 ScamGuard · <span data-i18n="footer_privacy"></span></p>
   </div>
 </footer>
 
@@ -372,16 +338,11 @@ footer p { margin: 0; max-width: 620px; }
 
   var T = {
     uz: {
-      nav_cta: "Botni ochish", live: "Jonli kuzatuv", updated: "yangilandi",
       h1a: "O'zbekistondagi firibgarliklar", h1b: "radari",
-      lead: "ScamGuard botiga yuborilgan xabarlar asosida: qaysi firibgarlik turlari ko'paygani, qanday soxta saytlar aylanayotgani va ulardan qanday himoyalanish mumkinligi. Anonim va real vaqtda.",
-      cta_check: "Xabarni tekshirish", cta_code: "Ochiq kod · GitHub",
-      trust_1: "Xabarlar saqlanmaydi", trust_2: "O'zbek, rus va ingliz tillarida", trust_3: "Ochiq kodli loyiha",
-      t_checks: "Tekshirilgan xabarlar", t_scams: "Aniqlangan firibgarlik", t_blocked: "Jamoa bloklagan", t_users: "Foydalanuvchilar",
-      t_since: "Kuzatuv boshlangan", t_24: "Himoya", t_24v: "24/7", t_24s: "Telegram'da har doim ishlaydi",
-      t_langs: "Tillar", t_langsv: "3", t_langss: "O'zbek (lotin, kirill), rus, ingliz",
-      t_priv: "Maxfiylik", t_privv: "100%", t_privs: "Xabar matnlari saqlanmaydi", t_sinces: "Ma'lumotlar yig'ilmoqda",
-      trend_h: "So'nggi 30 kun", trend_p: "Har kuni tekshirilgan xabarlar va ulardan firibgarlik deb topilganlari.",
+      lead: "Qaysi firibgarlik turlari ko'payayotgani, qaysi soxta saytlar tarqalayotgani va ulardan qanday himoyalanish kerakligi — ScamGuard ma'lumotlari asosida.",
+      cta_check: "Xabarni tekshirish",
+      t_checks: "Jami tekshirilgan", t_scams: "Firibgarlik aniqlangan", t_blocked: "Jamoa bloklagan",
+      trend_h: "So'nggi 30 kun", trend_h_since: "Ishga tushgandan beri", trend_p: "Har kuni tekshirilgan xabarlar va ulardan firibgarlik deb topilganlari.",
       s_checks: "Tekshirilgan xabarlar", s_scams: "Firibgarlik aniqlangan",
       table_view: "Jadval ko'rinishida", th_day: "Sana",
       chart_empty: "Ma'lumotlar yig'ilmoqda. Botga birinchi shubhali xabarni yuboring — u shu yerda paydo bo'ladi.",
@@ -393,13 +354,9 @@ footer p { margin: 0; max-width: 620px; }
       seen: "Oxirgi marta", times: "marta",
       guide_h: "Qanday himoyalanish kerak", guide_p: "Eng ko'p uchraydigan firibgarlik turlari va ularning xavf belgilari.",
       red_flag: "Xavf belgisi",
-      how_h: "Qanday ishlaydi",
-      how_1h: "Forward qiling", how_1p: "Shubhali xabar, havola, fayl yoki skrinshotni @" + BOT + " botiga yuboring.",
-      how_2h: "AI tekshiradi", how_2p: "Qoidalar, havola tahlili va AI model bir necha soniyada xabarni baholaydi.",
-      how_3h: "Sababi bilan javob", how_3p: "Xavf darajasi va nima uchun xavfli ekanini tushuntiradi. Firibgarni belgilab, boshqalarni ham himoya qilasiz.",
-      band_h: "Shubhali xabar keldimi?", band_p: "Bir soniyada tekshiring — bepul, anonim va o'zbek tilida.",
-      footer_privacy: "sahifada faqat anonim, umumlashtirilgan ma'lumotlar ko'rsatiladi. Xabar matnlari, foydalanuvchilar va telefon raqamlari hech qachon e'lon qilinmaydi.",
-      footer_code: "Ochiq kod (GitHub)", footer_by: "Muallif: Islomjon Agzamov",
+      footer_privacy: "Faqat anonim, umumlashtirilgan ma'lumotlar.",
+      about_h: "Ma'lumotlar qayerdan olinadi?",
+      about_p: "Ma'lumotlar ScamGuard botiga yuborilgan xabarlarni tekshirish natijalaridan anonim tarzda yig'iladi. Firibgarlik turi va soxta saytlarni bot o'zi aniqlaydi yoki ularni kamida 2 ta turli foydalanuvchi belgilagan bo'ladi. Xabar matnlari, foydalanuvchilar va telefon raqamlari saqlanmaydi va e'lon qilinmaydi. Raqamlar faqat botga yuborilgan xabarlarni aks ettiradi, O'zbekistondagi barcha firibgarliklarni emas.",
       load_err: "Ma'lumotlarni yuklab bo'lmadi. Sahifa bir daqiqadan so'ng qayta urinadi.",
       c_grant: "Soxta grant va o'qishga kirish", c_apk: "Zararli ilova (.apk)", c_marketplace: "OLX va savdo",
       c_relative: "Qarindosh nomidan", c_threat: "Tahdid va jarima", c_bank: "«Bank xodimi» va SMS kod",
@@ -407,16 +364,11 @@ footer p { margin: 0; max-width: 620px; }
       c_fake_site: "Soxta sayt va havola", c_community: "Jamoa belgilagan", c_other: "Boshqa"
     },
     ru: {
-      nav_cta: "Открыть бота", live: "Живой мониторинг", updated: "обновлено",
       h1a: "Радар мошенничества", h1b: "в Узбекистане",
-      lead: "На основе сообщений, отправленных боту ScamGuard: какие схемы мошенничества растут, какие фейковые сайты распространяются и как от них защититься. Анонимно и в реальном времени.",
-      cta_check: "Проверить сообщение", cta_code: "Открытый код · GitHub",
-      trust_1: "Сообщения не сохраняются", trust_2: "На узбекском, русском и английском", trust_3: "Проект с открытым кодом",
-      t_checks: "Проверено сообщений", t_scams: "Найдено мошенничеств", t_blocked: "Заблокировано сообществом", t_users: "Пользователей",
-      t_since: "Мониторинг с", t_24: "Защита", t_24v: "24/7", t_24s: "Всегда работает в Telegram",
-      t_langs: "Языки", t_langsv: "3", t_langss: "Узбекский (латиница, кириллица), русский, английский",
-      t_priv: "Приватность", t_privv: "100%", t_privs: "Тексты сообщений не хранятся", t_sinces: "Данные собираются",
-      trend_h: "Последние 30 дней", trend_p: "Сколько сообщений проверено каждый день и сколько из них оказались мошенническими.",
+      lead: "Какие схемы мошенничества растут, какие фейковые сайты распространяются и как от них защититься — по данным ScamGuard.",
+      cta_check: "Проверить сообщение",
+      t_checks: "Всего проверено", t_scams: "Найдено мошенничеств", t_blocked: "Заблокировано сообществом",
+      trend_h: "Последние 30 дней", trend_h_since: "С момента запуска", trend_p: "Сколько сообщений проверено каждый день и сколько из них оказались мошенническими.",
       s_checks: "Проверено сообщений", s_scams: "Найдено мошенничество",
       table_view: "Показать таблицей", th_day: "Дата",
       chart_empty: "Данные собираются. Отправьте боту первое подозрительное сообщение — оно появится здесь.",
@@ -428,13 +380,9 @@ footer p { margin: 0; max-width: 620px; }
       seen: "Последний раз", times: "раз",
       guide_h: "Как защититься", guide_p: "Самые частые схемы мошенничества и их тревожные признаки.",
       red_flag: "Тревожный признак",
-      how_h: "Как это работает",
-      how_1h: "Перешлите", how_1p: "Отправьте подозрительное сообщение, ссылку, файл или скриншот боту @" + BOT + ".",
-      how_2h: "AI проверяет", how_2p: "Правила, анализ ссылок и AI-модель оценивают сообщение за несколько секунд.",
-      how_3h: "Ответ с объяснением", how_3p: "Уровень риска и причины. Отметьте мошенника — и бот предупредит других.",
-      band_h: "Пришло подозрительное сообщение?", band_p: "Проверьте за секунду — бесплатно и анонимно.",
-      footer_privacy: "на странице показаны только анонимные обобщённые данные. Тексты сообщений, пользователи и номера телефонов никогда не публикуются.",
-      footer_code: "Открытый код (GitHub)", footer_by: "Автор: Исломжон Агзамов",
+      footer_privacy: "Только анонимные обобщённые данные.",
+      about_h: "Откуда эти данные?",
+      about_p: "Данные анонимно собираются из результатов проверки сообщений, отправленных боту ScamGuard. Тип мошенничества и фейковые сайты определяет сам бот, либо их отметили как минимум 2 разных пользователя. Тексты сообщений, пользователи и номера телефонов не хранятся и не публикуются. Цифры отражают только сообщения, отправленные боту, а не всё мошенничество в Узбекистане.",
       load_err: "Не удалось загрузить данные. Страница повторит попытку через минуту.",
       c_grant: "Фейковые гранты и поступление", c_apk: "Вредоносное приложение (.apk)", c_marketplace: "OLX и продажи",
       c_relative: "От имени родственника", c_threat: "Угрозы и штрафы", c_bank: "«Сотрудник банка» и SMS-код",
@@ -442,16 +390,11 @@ footer p { margin: 0; max-width: 620px; }
       c_fake_site: "Фейковые сайты и ссылки", c_community: "Отмечено сообществом", c_other: "Другое"
     },
     en: {
-      nav_cta: "Open the bot", live: "Live monitoring", updated: "updated",
       h1a: "Uzbekistan's scam", h1b: "radar",
-      lead: "Based on messages sent to the ScamGuard bot: which scam types are rising, which fake websites are spreading, and how to protect yourself. Anonymous and in real time.",
-      cta_check: "Check a message", cta_code: "Open source · GitHub",
-      trust_1: "Messages are never stored", trust_2: "Uzbek, Russian and English", trust_3: "Open-source project",
-      t_checks: "Messages checked", t_scams: "Scams detected", t_blocked: "Blocked by the community", t_users: "Users",
-      t_since: "Monitoring since", t_24: "Protection", t_24v: "24/7", t_24s: "Always on in Telegram",
-      t_langs: "Languages", t_langsv: "3", t_langss: "Uzbek (Latin, Cyrillic), Russian, English",
-      t_priv: "Privacy", t_privv: "100%", t_privs: "Message texts are never stored", t_sinces: "Collecting data",
-      trend_h: "Last 30 days", trend_p: "Messages checked each day, and how many of them were scams.",
+      lead: "Which scams are rising, which fake websites are spreading, and how to protect yourself, based on ScamGuard data.",
+      cta_check: "Check a message",
+      t_checks: "Total checked", t_scams: "Scams detected", t_blocked: "Blocked by the community",
+      trend_h: "Last 30 days", trend_h_since: "Since launch", trend_p: "Messages checked each day, and how many of them were scams.",
       s_checks: "Messages checked", s_scams: "Scams detected",
       table_view: "View as a table", th_day: "Date",
       chart_empty: "Collecting data. Send the bot your first suspicious message and it will show up here.",
@@ -463,13 +406,9 @@ footer p { margin: 0; max-width: 620px; }
       seen: "Last seen", times: "times",
       guide_h: "How to protect yourself", guide_p: "The most common scams and their red flags.",
       red_flag: "Red flag",
-      how_h: "How it works",
-      how_1h: "Forward it", how_1p: "Send any suspicious message, link, file or screenshot to @" + BOT + ".",
-      how_2h: "AI checks it", how_2p: "Rules, link analysis and an AI model assess the message in seconds.",
-      how_3h: "An explained answer", how_3p: "You get the risk level and why. Report a scammer and the bot warns everyone else.",
-      band_h: "Got a suspicious message?", band_p: "Check it in a second. Free and anonymous.",
-      footer_privacy: "this page shows only anonymous, aggregated data. Message texts, users and phone numbers are never published.",
-      footer_code: "Source code (GitHub)", footer_by: "Built by Islomjon Agzamov",
+      footer_privacy: "Anonymous, aggregated data only.",
+      about_h: "Where does this data come from?",
+      about_p: "The data is collected anonymously from the results of messages checked by the ScamGuard bot. Scam types and fake sites are detected by the bot itself or reported by at least 2 different users. Message texts, users and phone numbers are never stored or published. The numbers reflect only messages sent to the bot, not all scams in Uzbekistan.",
       load_err: "Couldn't load the data. The page will retry in a minute.",
       c_grant: "Fake grants & admissions", c_apk: "Malicious app (.apk)", c_marketplace: "OLX & marketplace",
       c_relative: "Posing as a relative", c_threat: "Threats & fines", c_bank: "“Bank staff” & SMS codes",
@@ -513,7 +452,6 @@ footer p { margin: 0; max-width: 620px; }
     document.documentElement.lang = state.lang;
     document.querySelectorAll("[data-i18n]").forEach(function (n) { n.textContent = t(n.getAttribute("data-i18n")); });
     document.querySelectorAll(".langs button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)); });
-    document.querySelector(".nav .btn").setAttribute("aria-label", t("nav_cta"));
     if (state.data) renderAll();
   }
   document.querySelectorAll(".langs button").forEach(function (b) {
@@ -533,19 +471,13 @@ footer p { margin: 0; max-width: 620px; }
     return d;
   }
   function renderTiles() {
-    var box = $("tiles"); box.textContent = "";
-    var d = state.data, tot = d.totals;
-    if (tot) {
-      box.appendChild(tile(t("t_checks"), fmt(tot.checks), d.since ? t("t_since") + ": " + fmtDay(d.since, true) : ""));
-      box.appendChild(tile(t("t_scams"), fmt(tot.scams), tot.checks ? Math.round(100 * tot.scams / tot.checks) + "%" : ""));
-      box.appendChild(tile(t("t_blocked"), fmt(tot.blocked), ""));
-      box.appendChild(tile(t("t_users"), fmt(tot.users), ""));
-    } else {
-      box.appendChild(tile(t("t_since"), d.since ? fmtDay(d.since, true) : "—", t("t_sinces")));
-      box.appendChild(tile(t("t_24"), t("t_24v"), t("t_24s")));
-      box.appendChild(tile(t("t_langs"), t("t_langsv"), t("t_langss")));
-      box.appendChild(tile(t("t_priv"), t("t_privv"), t("t_privs")));
-    }
+    var box = $("tiles"), tot = state.data.totals;
+    box.textContent = "";
+    box.hidden = !tot;                 // real totals only, shown once there is enough data
+    if (!tot) return;
+    box.appendChild(tile(t("t_checks"), fmt(tot.checks), ""));
+    box.appendChild(tile(t("t_scams"), fmt(tot.scams), tot.checks ? Math.round(100 * tot.scams / tot.checks) + "%" : ""));
+    box.appendChild(tile(t("t_blocked"), fmt(tot.blocked), ""));
   }
 
   /* ---------- trend chart (one axis, two series, crosshair tooltip) ---------- */
@@ -556,7 +488,11 @@ footer p { margin: 0; max-width: 620px; }
   }
   function renderTrend() {
     var box = $("trend"); box.textContent = "";
-    var days = state.data.daily, n = days.length;
+    // Young service: start the chart at launch (at least 7 days) instead of showing weeks of zeros.
+    var all = state.data.daily, first = all.findIndex(function (d) { return d.checks > 0; });
+    var start = first > 0 ? Math.max(0, Math.min(first - 1, all.length - 7)) : 0;
+    var days = all.slice(start), n = days.length;
+    $("trend-h").textContent = start > 0 ? t("trend_h_since") : t("trend_h");
     var W = Math.max(box.clientWidth, 280), H = window.matchMedia("(max-width: 640px)").matches ? 240 : 280;
     var m = { l: 40, r: 44, t: 14, b: 30 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
     var max = niceMax(Math.max.apply(null, days.map(function (d) { return d.checks; }).concat([1])));
@@ -706,8 +642,6 @@ footer p { margin: 0; max-width: 620px; }
   }
 
   function renderAll() {
-    var u = new Date(state.data.updated);
-    $("updated").textContent = t("updated") + " " + u.toLocaleTimeString(state.lang === "en" ? "en-GB" : "ru-RU", { hour: "2-digit", minute: "2-digit" });
     renderTiles(); renderTrend(); renderCats(); renderSites(); renderGuide();
   }
 
@@ -734,6 +668,9 @@ footer p { margin: 0; max-width: 620px; }
   }
   tgPost("web_app_ready");
   tgPost("web_app_expand");
+  // Inside Telegram the user is already in the bot, so the "check a message" button is not needed.
+  var inTelegram = !!window.TelegramWebviewProxy || (window.external && "notify" in window.external) || window.parent !== window;
+  if (inTelegram) $("hero-cta").hidden = true;
 
   state.lang = pickLang();
   applyLang();
