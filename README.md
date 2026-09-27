@@ -37,7 +37,7 @@ It's in Uzbek, Russian and English, with light and dark themes, and it works on 
 - Fake sites are **defanged** (`el-yurt-grant[.]xyz`), so nobody opens them by accident.
 - Total counters appear only after 100 checks (`SCAMGUARD_SHOW_TOTALS_FROM`).
 - Security: a strict Content-Security-Policy (the inline script is pinned by its SHA-256 hash), no third-party scripts
-  or fonts, `X-Frame-Options: DENY`, `nosniff`.
+  or fonts, `nosniff`, and only Telegram may embed the page (`frame-ancestors`).
 - Endpoints: `/` (page), `/api/radar.json` (data, cached 30s), `/healthz`.
 - On Railway: **Settings → Networking → Generate Domain**. The web server listens on `$PORT` (default 8080).
 
@@ -64,7 +64,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 130 tests incl. a simulated Telegram chat and real OCR
+python -m pytest                   # 135 tests incl. a simulated Telegram chat and real OCR
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
