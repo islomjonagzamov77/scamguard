@@ -61,7 +61,9 @@ def test_privacy_nothing_personal_is_published(env):
         feed({"message": msg(SCAM)})
         press_report(feed, session, user)
     feed({"message": msg("Hi mom it's me, my new number, send money to 8600 1234 5678 9012, call +998 90 555 44 33")})
-    body = json.dumps(radar.build(botmod.storage, 2), ensure_ascii=False)
+    data = radar.build(botmod.storage, 2)
+    data.pop("updated", None)  # time-based field can coincidentally contain digits from other secrets
+    body = json.dumps(data, ensure_ascii=False)
     for secret in ("998", "90 111", "901112233", "8600", "5678", "555 44", "Pulni o'tkazib", "mom", str(USER.id)):
         assert secret not in body, f"leaked: {secret}"
     assert "olx-pay-uz[.]top" in body                                # the fake site is shown, defanged
