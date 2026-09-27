@@ -269,3 +269,71 @@ def test_group_report_command(env):
     target = msg(SCAM, chat=GROUP)
     reply = feed({"message": msg("/report", chat=GROUP, reply_to=target)})
     assert "olx-pay-uz.top" in reply
+
+
+# ---------------- inline mode ----------------
+from aiogram.types import InlineQuery  # noqa: E402
+
+
+def inline(feed, session, text):
+    feed({"inline_query": InlineQuery(id=str(next(_uid)), from_user=USER, query=text, offset="")})
+    call = session.calls[-1]
+    assert type(call).__name__ == "AnswerInlineQuery"
+    return call.results[0]
+
+
+def test_inline_empty_shows_help(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    r = inline(feed, session, "")
+    assert "Type a link" in r.title and "@scamguard_test_bot" in r.input_message_content.message_text
+
+
+def test_inline_scam_link(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "uz")
+    r = inline(feed, session, "c1ick-bonus.xyz")
+    assert r.title.startswith("🔴") and "%" in r.title
+    msg = r.input_message_content.message_text
+    assert "c1ick-bonus.xyz" in msg and "@scamguard_test_bot orqali tekshirildi" in msg
+    assert r.reply_markup.inline_keyboard[0][0].url == "https://t.me/scamguard_test_bot?start=inline"
+
+
+def test_inline_safe_text(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    r = inline(feed, session, "see you at the library at 5")
+    assert r.title.startswith("🟢") and r.description == "No scam signs found"
+
+
+def test_inline_uses_community_blocklist(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    inds = botmod.blocklist.extract("call +998 90 111 22 33")
+    botmod.storage.add_reports(inds, 1)
+    botmod.storage.add_reports(inds, 2)
+    r = inline(feed, session, "call me +998 90 111 22 33")
+    assert "2 users reported" in r.description
+
+
+# ---------------- regression: El-yurt umidi channel post (reported false alarm) ----------------
+from aiogram.types import MessageEntity, MessageOriginChannel  # noqa: E402
+
+ELYURT_POST = ("#OAV_biz_haqimizda #Ахборот24\n\n⚡️Sudyalar uchun xalqaro tajriba maktabi\n\n"
+               "🔗 Website: El-yurt.uz \n\nTelegram | Facebook |Instagram| YouTube")
+
+
+def test_elyurt_channel_post_is_safe_with_trust_signal(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "uz")
+    channel = Chat(id=-1001, type="channel", title='"El-yurt umidi" Foundation', username="elyurtumidi")
+    links = [("Telegram", "https://t.me/elyurtumidi"), ("Facebook", "https://www.facebook.com/elyurtumidi"),
+             ("Instagram", "https://www.instagram.com/elyurtumidi"), ("YouTube", "https://www.youtube.com/@elyurtumidi")]
+    entities = [MessageEntity(type="text_link", offset=ELYURT_POST.index(name), length=len(name), url=url)
+                for name, url in links]
+    m = Message(message_id=next(_uid), date=datetime.now(), chat=PRIVATE, from_user=USER, text=ELYURT_POST,
+                entities=entities, forward_origin=MessageOriginChannel(date=datetime.now(), chat=channel, message_id=5))
+    reply = feed({"message": m})
+    assert "🟢" in reply and "past" in reply
+    assert "AI model" not in reply and "Nima uchun" not in reply
+    assert "Ishonch belgilari" in reply and "el-yurt.uz" in reply

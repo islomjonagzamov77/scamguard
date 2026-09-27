@@ -30,6 +30,8 @@ def main() -> None:
     print(f"{ICONS[verdict.level.value]} {verdict.level.value.upper()}  (score {verdict.score:.2f})")
     for reason in verdict.reasons:
         print(f"  • {reason.text(args.lang)}")
+    for sign in verdict.trust:
+        print(f"  ✅ {sign.text(args.lang)}")
 
 
 if __name__ == "__main__":

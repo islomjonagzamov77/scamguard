@@ -51,6 +51,7 @@ T: dict[str, dict[str, str]] = {
               "• 📎 xavfli fayllar (.apk, .exe, <code>rasm.jpg.apk</code>)\n"
               "• 🤖 AI model bahosi\n\n"
               "🚩 Firibgarni ko'rsangiz — «Firibgar deb belgilash» tugmasini bosing. 2 kishi belgilasa, bot hammani ogohlantiradi.\n\n"
+              "💬 Istalgan chatda: <code>@scamguard_uzbbot havola</code> deb yozing — o'sha yerda tekshiraman.\n"
               "👥 Guruhda: xabarga javoban /check yoki /report yozing.",
         "ru": "🔍 <b>Как проверить?</b>\n\n"
               "1️⃣ Зажмите подозрительное сообщение → <b>Переслать</b> → выберите ScamGuard\n"
@@ -64,6 +65,7 @@ T: dict[str, dict[str, str]] = {
               "• 📎 опасные файлы (.apk, .exe, <code>foto.jpg.apk</code>)\n"
               "• 🤖 оценку AI-модели\n\n"
               "🚩 Увидели мошенника — нажмите «Пожаловаться». Когда отметят 2 человека, бот будет предупреждать всех.\n\n"
+              "💬 В любом чате: напишите <code>@scamguard_uzbbot ссылка</code> — проверю прямо там.\n"
               "👥 В группе: ответьте на сообщение командой /check или /report.",
         "en": "🔍 <b>How to check</b>\n\n"
               "1️⃣ Long-press the suspicious message → <b>Forward</b> → choose ScamGuard\n"
@@ -77,6 +79,7 @@ T: dict[str, dict[str, str]] = {
               "• 📎 dangerous files (.apk, .exe, <code>photo.jpg.apk</code>)\n"
               "• 🤖 the AI model's score\n\n"
               "🚩 Spotted a scammer? Tap \"Report as scam\". Once 2 people report it, the bot warns everyone.\n\n"
+              "💬 In any chat: type <code>@scamguard_uzbbot link</code> and I'll check it right there.\n"
               "👥 In a group: reply to a message with /check or /report.",
     },
     # ---------- verdicts ----------
@@ -91,6 +94,8 @@ T: dict[str, dict[str, str]] = {
     "source": {"uz": "Manba", "ru": "Источник", "en": "Source"},
     "file": {"uz": "Fayl", "ru": "Файл", "en": "File"},
     "why": {"uz": "Nima uchun:", "ru": "Почему:", "en": "Why:"},
+    "trust": {"uz": "Ishonch belgilari:", "ru": "Признаки доверия:", "en": "Trust signals:"},
+    "risk_low": {"uz": "past", "ru": "низкий", "en": "low"},
     "a_safe": {
         "uz": "Baribir: hech kimga SMS kod, karta raqami yoki CVV bermang.",
         "ru": "И всё же: никому не сообщайте SMS-коды, номер карты и CVV.",
@@ -266,6 +271,23 @@ T: dict[str, dict[str, str]] = {
         "ru": "Ответьте командой /check <b>на сообщение</b>, которое нужно проверить.",
         "en": "<b>Reply</b> to a message with /check to scan it.",
     },
+    # ---------- inline mode ----------
+    "inline_help_title": {"uz": "🛡 Havola yoki xabarni yozing", "ru": "🛡 Введите ссылку или сообщение",
+                          "en": "🛡 Type a link or message"},
+    "inline_help_desc": {
+        "uz": "Masalan: @{bot} click-bonus.xyz — firibgarlikka tekshiraman",
+        "ru": "Например: @{bot} click-bonus.xyz — проверю на мошенничество",
+        "en": "For example: @{bot} click-bonus.xyz and I'll check it for scams",
+    },
+    "inline_help_msg": {
+        "uz": "🛡 <b>ScamGuard</b> — shubhali xabar va havolalarni tekshiruvchi AI bot.\nIstalgan chatda yozing: <code>@{bot} havola</code>",
+        "ru": "🛡 <b>ScamGuard</b> — AI-бот для проверки подозрительных сообщений и ссылок.\nВ любом чате напишите: <code>@{bot} ссылка</code>",
+        "en": "🛡 <b>ScamGuard</b>: an AI bot that checks suspicious messages and links.\nIn any chat, type: <code>@{bot} link</code>",
+    },
+    "inline_checked": {"uz": "🔎 Tekshirildi", "ru": "🔎 Проверено", "en": "🔎 Checked"},
+    "inline_by": {"uz": "🛡 @{bot} orqali tekshirildi", "ru": "🛡 Проверено через @{bot}", "en": "🛡 Checked by @{bot}"},
+    "inline_btn": {"uz": "🛡 O'zingiz tekshiring", "ru": "🛡 Проверить самому", "en": "🛡 Check yours"},
+    "inline_safe_desc": {"uz": "Xavf belgilari topilmadi", "ru": "Признаков угрозы нет", "en": "No scam signs found"},
     # ---------- screenshots ----------
     "ocr_read": {"uz": "📷 Rasmdan o'qildi", "ru": "📷 Прочитано с картинки", "en": "📷 Read from the image"},
     "ocr_empty": {
@@ -313,35 +335,44 @@ T: dict[str, dict[str, str]] = {
     },
     # ---------- bot profile (set automatically on startup) ----------
     "bot_short": {
-        "uz": "🛡 Firibgarlikni aniqlovchi AI bot. Shubhali xabar, havola yoki faylni forward qiling!",
-        "ru": "🛡 AI-бот против мошенников. Перешлите подозрительное сообщение, ссылку или файл!",
-        "en": "🛡 AI scam detector. Forward any suspicious message, link or file!",
+        "uz": "🛡 Firibgarlikdan himoya: shubhali xabar, havola yoki skrinshotni yuboring — sun'iy intellekt bir zumda tekshiradi.",
+        "ru": "🛡 Защита от мошенников: отправьте подозрительное сообщение, ссылку или скриншот — AI проверит за секунду.",
+        "en": "🛡 Scam protection: send any suspicious message, link or screenshot and AI checks it in seconds.",
     },
     "bot_description": {
-        "uz": "🛡 ScamGuard — O'zbekiston uchun firibgarlikni aniqlovchi AI bot.\n\n"
-              "✅ Soxta yutuq, «bank xodimi», OLX va .apk firibgarliklari\n"
-              "✅ Soxta saytlar: c1ick.uz, paymе-bonus.xyz\n"
-              "✅ Skrinshotlarni o'qiydi\n"
-              "✅ O'zbek (lotin/kirill), rus va ingliz tillari\n"
-              "✅ Guruhlarni himoya qiladi\n"
+        "uz": "🛡 ScamGuard — firibgarlikni aniqlovchi sun'iy intellekt yordamchisi.\n\n"
+              "Shubhali xabar, havola, fayl yoki skrinshotni yuboring — bir necha soniyada tekshirib, "
+              "xavf darajasi va sababini tushuntirib beraman.\n\n"
+              "🔍 Nimalarni aniqlayman:\n"
+              "• Soxta yutuq va «bank xodimi» firibgarliklari\n"
+              "• OLX va to'lov firibgarliklari\n"
+              "• Soxta saytlar: c1ick.uz, paymе-bonus.xyz\n"
+              "• Xavfli .apk fayllar\n\n"
+              "💬 Istalgan chatda: @scamguard_uzbbot + havola\n"
               "🔒 Xabarlaringiz saqlanmaydi\n\n"
-              "«Start» ni bosing va shubhali xabarni forward qiling 👇",
-        "ru": "🛡 ScamGuard — AI-бот для распознавания мошенничества в Узбекистане.\n\n"
-              "✅ Фейковые выигрыши, «сотрудники банка», OLX и .apk\n"
-              "✅ Поддельные сайты: c1ick.uz, paymе-bonus.xyz\n"
-              "✅ Читает скриншоты\n"
-              "✅ Узбекский (латиница/кириллица), русский и английский\n"
-              "✅ Защищает группы\n"
-              "🔒 Сообщения не сохраняются\n\n"
-              "Нажмите «Старт» и перешлите подозрительное сообщение 👇",
-        "en": "🛡 ScamGuard: an AI scam detector built for Uzbekistan.\n\n"
-              "✅ Fake prizes, \"bank staff\", OLX and .apk scams\n"
-              "✅ Fake sites like c1ick.uz, paymе-bonus.xyz\n"
-              "✅ Reads screenshots\n"
-              "✅ Uzbek (Latin/Cyrillic), Russian and English\n"
-              "✅ Protects group chats\n"
+              "Boshlash uchun «Start» tugmasini bosing 👇",
+        "ru": "🛡 ScamGuard — AI-помощник для распознавания мошенничества.\n\n"
+              "Отправьте подозрительное сообщение, ссылку, файл или скриншот — за несколько секунд я проверю "
+              "и объясню уровень риска и его причины.\n\n"
+              "🔍 Что я распознаю:\n"
+              "• Фейковые выигрыши и «сотрудников банка»\n"
+              "• Мошенничество на OLX и с платежами\n"
+              "• Поддельные сайты: c1ick.uz, paymе-bonus.xyz\n"
+              "• Опасные .apk-файлы\n\n"
+              "💬 В любом чате: @scamguard_uzbbot + ссылка\n"
+              "🔒 Ваши сообщения не сохраняются\n\n"
+              "Нажмите «Старт», чтобы начать 👇",
+        "en": "🛡 ScamGuard: an AI assistant that detects scams.\n\n"
+              "Send any suspicious message, link, file or screenshot. In a few seconds I'll check it "
+              "and explain the risk level and why.\n\n"
+              "🔍 What I detect:\n"
+              "• Fake prizes and \"bank staff\" scams\n"
+              "• OLX and payment scams\n"
+              "• Fake websites like c1ick.uz, paymе-bonus.xyz\n"
+              "• Dangerous .apk files\n\n"
+              "💬 In any chat: @scamguard_uzbbot + link\n"
               "🔒 Your messages are not stored\n\n"
-              "Press Start and forward a suspicious message 👇",
+              "Press Start to begin 👇",
     },
     "cmd_start": {"uz": "Botni ishga tushirish", "ru": "Запустить бота", "en": "Start the bot"},
     "cmd_help": {"uz": "Qanday tekshiraman", "ru": "Как проверить", "en": "How to check"},

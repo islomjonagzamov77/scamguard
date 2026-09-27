@@ -1,0 +1,28 @@
+text,label,lang,category
+"Tabriklaymiz! Siz xorijda bepul o'qish grantini yutdingiz. Hujjatlarni tayyorlash uchun 200 000 so'm to'lov qiling va chekni yuboring",1,uz,fake_grant
+"Grant bo'yicha komissiya a'zosiman, 100% o'qishga kirishingizni kafolatlayman. Oldindan 500$ to'lov kerak",1,uz,fake_grant
+"Jamg'arma nomidan: stipendiyangizni olish uchun karta raqamingiz va SMS kodni yuboring",1,uz,fake_grant
+"Siz tanlovdan o'tdingiz! Viza uchun 150$ yig'imni shu kartaga o'tkazing, 24 soat ichida",1,uz,fake_grant
+"Hurmatli mijoz, kartangizdan shubhali to'lov urinishi aniqlandi. Bekor qilish uchun kelgan kodni ayting",1,uz,bank
+"Bank xodimiman, pullaringizni xavfsiz hisobga o'tkazamiz, faqat tasdiqlash kodini aytib turing",1,uz,bank
+"Sizning raqamingiz yutuqli o'yinda g'olib bo'ldi! Sovrinni olish uchun yetkazib berish to'lovini qiling",1,uz,prize
+"Ushbu havolaga kirib 5 do'stingizga yuboring va 1 000 000 so'm bonus oling!",1,uz,prize
+"Sizga jo'natma keldi, lekin manzil noto'g'ri. Manzilni tasdiqlash va 9 900 so'm to'lash uchun havolaga kiring",1,uz,parcel
+"OLX: xaridor to'lovni amalga oshirdi. Pulni qabul qilish uchun karta raqami, amal qilish muddati va CVV kiriting",1,uz,marketplace
+"Mahsulotingizni sotib olmoqchiman, lekin OLX dostavka orqali, havolaga kirib to'lovni qabul qiling",1,uz,marketplace
+"Onlayn ish: kuniga 2 soat, oyiga 1000$. Ro'yxatdan o'tish uchun 99 000 so'm to'lang",1,uz,job_scam
+"Investitsiya qiling — har hafta 30% foyda kafolatlanadi. Minimal summa 100$",1,uz,investment
+"Salom, bu men, telefonim buzildi, do'stimning raqamidan yozyapman. Zudlik bilan 1 mln tashlab tur, keyin qaytaraman",1,uz,relative
+"Сизнинг номингизга жарима ёзилган. Тўламасангиз суд иши очилади. Тўлов: havola",1,uz,threat
+"Табриклаймиз! Сиз грант ютдингиз. Ҳужжатлар учун 200 000 сўм тўланг",1,uz,fake_grant
+"Поздравляем! Вы прошли отбор на грант. Для оформления документов оплатите 200 000 сум в течение суток",1,ru,fake_grant
+"Я член комиссии, гарантирую поступление. Нужна предоплата 500$",1,ru,fake_grant
+"Обнаружена попытка списания с вашей карты. Для отмены назовите код из смс",1,ru,bank
+"Ваша посылка задержана. Подтвердите адрес и оплатите 9 900 сум по ссылке",1,ru,parcel
+"Инвестируйте сейчас — гарантируем 30% прибыли каждую неделю",1,ru,investment
+"На вас выписан штраф. Если не оплатите сегодня, возбуждено уголовное дело",1,ru,threat
+"Congratulations! You have been selected for a fully funded scholarship. Pay the $150 processing fee to receive your documents",1,en,fake_grant
+"I'm on the admission committee and can guarantee your acceptance for a $500 deposit",1,en,fake_grant
+"We detected an unauthorized payment on your card. Tell us the verification code to cancel it",1,en,bank
+"Your parcel is held at customs. Pay the release fee today or it will be returned",1,en,parcel
+"Guaranteed 30% weekly returns on crypto. Invest now, limited spots!",1,en,investment

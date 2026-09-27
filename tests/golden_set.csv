@@ -1,0 +1,58 @@
+expect,text,note
+safe,"#OAV_biz_haqimizda #Ахборот24 ⚡️Sudyalar uchun xalqaro tajriba maktabi 🔗 Website: El-yurt.uz Telegram | Facebook | Instagram | YouTube https://t.me/elyurtumidi https://www.facebook.com/elyurtumidi https://www.instagram.com/elyurtumidi",el-yurt umidi channel post (reported false alarm)
+safe,"📢 «El-yurt umidi» jamg'armasi 2027-yil uchun magistratura dasturiga hujjat qabul qilishni boshladi. Batafsil ma'lumot: el-yurt.uz",foundation announcement
+safe,"⚡️ Prezident qarori bilan yoshlar uchun yangi grant dasturi tasdiqlandi. Batafsil — kun.uz",news post
+safe,"Toshkentda ertaga havo harorati +28 darajagacha ko'tariladi, yog'ingarchilik kutilmaydi. #ob_havo",weather news
+safe,"INHA University: 2026-2027 o'quv yili kuzgi semestr imtihonlari jadvali e'lon qilindi. Talabalar portaliga kiring.",university notice
+safe,"Hurmatli talabalar! Ertaga soat 10:00 da B-blok 305-xonada seminar bo'lib o'tadi. Qatnashish majburiy.",class notice
+safe,"Davlat xizmatlari markazi: pasport olish uchun endi my.gov.uz orqali onlayn navbat olish mumkin.",gov service news
+safe,"🎓 IT Park yosh dasturchilar uchun bepul kurslarga qabulni boshladi. Ro'yxatdan o'tish 15-oktabrgacha.",free course announcement
+safe,"Kapitalbank: 1-oktabrdan boshlab filiallarimiz shanba kunlari ham ishlaydi. Savollar bo'yicha: kapitalbank.uz",bank schedule notice
+safe,"Uzum Market'da kuzgi chegirmalar boshlandi — maishiy texnikaga 30% gacha chegirma. uzum.uz",legit retail promo
+safe,"Kartangizdan 125 000 so'm yechildi. Balans: 2 340 000 so'm. Humo",bank debit SMS
+safe,"Tasdiqlash kodi: 845120. Kodni hech kimga bermang! Bank xodimlari kodni so'ramaydi.",OTP SMS with warning
+safe,"Buyurtmangiz №48213 yetkazib berildi. Xaridingiz uchun rahmat!",delivery confirmation
+safe,"Mahallamizda shanba kuni hashar bo'ladi, soat 9:00 da masjid oldida yig'ilamiz.",neighborhood chat
+safe,"Ona, men darsdan keyin kutubxonaga boraman, kechroq qaytaman",family message
+safe,"Bugungi futbol o'yinida terma jamoamiz 2:1 hisobida g'alaba qozondi! 🇺🇿",sports news
+safe,"Yangi iPhone 17 O'zbekistonda sotuvga chiqdi. Narxlar va do'konlar ro'yxati — daryo.uz",tech news mentioning iPhone
+safe,"Konferensiyaga taklif: «Sun'iy intellekt va ta'lim», 12-noyabr, Toshkent. Ro'yxatdan o'tish bepul.",event invite
+safe,"Vakansiya: Frontend dasturchi (React). Tajriba 1 yil. Rezyume yuborish: hr@company.uz",job posting
+safe,"Kutubxonadan olgan kitoblaringizni 30-sentabrgacha qaytarishingizni so'raymiz.",library reminder
+safe,"Diqqat! Bugun soat 14:00 dan 16:00 gacha Chilonzor tumanida elektr ta'minoti vaqtincha to'xtatiladi.",utility outage notice
+safe,"Hurmatli mijoz, internet tarifingiz 3 kundan so'ng yangilanadi. Balansni to'ldirishni unutmang.",telecom reminder
+safe,"Хорошие новости: в Ташкенте открылся новый парк. Вход бесплатный. Подробнее на gazeta.uz",russian news
+safe,"Уважаемые студенты, расписание экзаменов опубликовано на сайте университета.",russian university notice
+safe,"Код подтверждения: 551902. Никому не сообщайте этот код.",russian OTP
+safe,"Списание 45 000 сум. Баланс карты: 1 100 000 сум",russian debit SMS
+safe,"Приглашаем на открытую лекцию по кибербезопасности в четверг в 18:00.",russian event
+safe,"Congratulations to our graduates! The ceremony will be held on June 20 at the main hall.",english congratulations (legit)
+safe,"The application deadline for the scholarship is October 15. See the official website for details.",english deadline notice
+safe,"Your order has been shipped and will arrive on Friday.",english shipping
+safe,"Ҳурматли фуқаролар! Солиқ тўлаш муддати 1-декабргача узайтирилди. Батафсил: soliq.uz",cyrillic tax notice (legit)
+safe,"Эртага мактабда ота-оналар мажлиси бўлади, соат 18:00 да.",cyrillic school notice
+flag,"Tabriklaymiz! Siz El-yurt umidi grantini yutib oldingiz. Hujjatlarni rasmiylashtirish uchun 24 soat ichida 300 000 so'm to'lang: el-yurt-grant.xyz",fake grant scam using EYUF name
+flag,"Hurmatli mijoz, kartangiz bloklandi. Blokdan chiqarish uchun SMS kodni shu raqamga yuboring",blocked card
+flag,"Salom, OLX dagi e'loningizni sotib oldim, pulni olish uchun havolaga kirib karta ma'lumotlarini kiriting olx-uz-pay.top",OLX scam
+flag,"Rasmlarni ko'ring, siz ham borsiz 😂 foto_2026.apk",apk scam
+flag,"Ona, bu men, yangi raqamimdan yozyapman. Muammoga qoldim, tezda pul tashla, hech kimga aytma",relative scam
+flag,"Uyda o'tirib kuniga 500 000 so'm ishlang! Faqat layk bosing. Ro'yxatdan o'tish 50 000 so'm",job scam
+flag,"Davlat xizmatlari: sizga 1 500 000 so'm kompensatsiya ajratildi. Olish uchun karta raqami va amal qilish muddatini yuboring",gov compensation scam
+flag,"Click aksiyasi! 300 000 so'm bonus oling: c1ick-bonus.online",lookalike click domain
+flag,"Payme hisobingiz to'xtatildi. Qayta faollashtirish: paymе-verify.site",cyrillic e lookalike
+flag,"Вы выиграли iPhone 17! Для получения приза оплатите доставку по ссылке bit.ly/prize-uz",russian prize
+flag,"Служба безопасности банка. По вашей карте подозрительная операция, продиктуйте код из смс",russian bank impersonation
+flag,"Мама, это я, мой новый номер. Попал в беду, срочно нужны деньги, никому не говори",russian relative
+flag,"Your bank account has been suspended. Verify immediately: secure-login-bank.xyz",english phishing
+flag,"Congratulations! You have won a $1000 gift card. Claim your prize now at gift-reward.click",english prize
+flag,"Картангиз блокланди. Банк хавфсизлик хизмати: СМС кодни айтинг",cyrillic uzbek bank scam
+flag,"Kriptoga 100$ tiking va 3 kunda x2 qiling! Kafolatlangan passiv daromad",crypto scam
+flag,"Posilkangiz omborda. Kuzatish uchun ilovani yuklab oling: pochta-track.apk",parcel apk scam
+safe,"Qabul komissiyasi a'zosi Aziz Karimov abituriyentlar bilan uchrashadi.",legit mention of commission member
+safe,"Член приёмной комиссии ответит на вопросы абитуриентов в пятницу.",legit russian commission member
+safe,"Pochta: posilkangiz filialga yetib keldi, pasport bilan olib ketishingiz mumkin.",legit parcel notice
+safe,"Investitsiyalar bo'yicha xalqaro forum 10-noyabr kuni Toshkentda bo'lib o'tadi.",legit investment forum news
+safe,"Grant g'oliblari ro'yxati jamg'arma saytida e'lon qilindi: el-yurt.uz",legit grant results
+flag,"Men komissiya a'zosiman, 3000$ evaziga grantni kafolatlayman",fake grant guarantee
+flag,"Посылка задержана на таможне, оплатите 15 000 сум пошлины по ссылке",russian parcel fee
+flag,"Telefonim buzildi, do'stimning raqamidan yozyapman, zudlik bilan pul kerak",relative variant

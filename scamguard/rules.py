@@ -23,6 +23,12 @@ class Rule:
     weight: float
     pattern: re.Pattern
     reason: Reason
+    amplifier: bool = False   # only counts when a core scam signal is also present
+
+
+# Context words that are normal on their own ("urgent", "tax office") and only
+# matter together with a real scam signal (asking for codes, money, a fake link...).
+AMPLIFIERS = {"urgency", "gov_impersonation"}
 
 
 def _r(*alternatives: str) -> re.Pattern:
@@ -44,10 +50,13 @@ RULES: list[Rule] = [
         "Просят SMS-код, номер карты или CVV — никогда никому их не сообщайте",
     )),
     Rule("prize", 0.4, _r(
-        r"yutib oldingiz", r"yutdingiz", r"g'olib(?: bo'ldingiz)?", r"sovrin", r"sovg'a(?:ni)? (?:ol|yutib)",
-        r"lotereya", r"bonus(?:ni)? ol",
-        r"вы выиграли", r"выигрыш", r"(?:стали|являетесь) победител", r"приз\b", r"розыгрыш",
-        r"you(?:'ve| have)? won", r"\bwinner\b", r"claim your (?:prize|reward|gift)", r"lottery",
+        # "YOU won" + a way to collect it; plain news about winners must not match
+        r"yutib oldingiz", r"yutdingiz", r"g'olib bo'ldingiz", r"(?:siz|raqamingiz)\S* [^.\n]{0,25}g'olib",
+        r"sovrin(?:ni)? (?:olish|olasiz|oling)", r"sovg'a(?:ni)? (?:olish|oling|yutib)", r"bonus(?:ni)? oling?",
+        r"lotereya\S* (?:g'olib|yut)",
+        r"вы выиграли", r"ваш выигрыш", r"(?:стали|являетесь) победител", r"(?:получения|получить|забрать) приз",
+        r"you(?:'ve| have)? won", r"you(?:'re| are) (?:the|a|our) winner", r"claim your (?:prize|reward|gift)",
+        r"(?:won|win) (?:the |a )?lottery",
     ), Reason(
         "Kutilmagan yutuq yoki sovg'a va'da qilinmoqda",
         "Promises an unexpected prize or gift",
@@ -87,6 +96,17 @@ RULES: list[Rule] = [
         r"yetkazib berish (?:uchun )?to'lov", r"sug'urta to'lovi",
         r"предоплат", r"оплатит\w* комисси", r"оплат\w* доставк", r"страховой взнос",
         r"pay (?:a|the) (?:small )?(?:fee|deposit|commission)", r"processing fee",
+    
+        r"yig'im(?:ni)? (?:to'la|o'tkaz)",
+        r"(?:olish|tasdiqlash|rasmiylashtirish|chiqarish|tayyorlash) uchun [^.\n]{0,30}?(?:to'lov qiling|to'lang|to'lash)",
+        r"viza uchun [^.\n]{0,25}(?:to'la|o'tkaz|yig'im)",
+        r"(?:для получения|для оформления|для подтверждения|для выдачи)[^.\n]{0,40}оплат",
+        r"оплатите [\d\s]+(?:сум|\$|долл)",
+        r"pay (?:the |a )?(?:\$?\d+ )?(?:release|processing|customs|delivery|registration|visa) fee",
+        r"(?:for|with) a \$\d+ (?:deposit|fee)",
+    
+        r"to'lash uchun (?:havola|link|saytga)",
+        r"(?:jo'natma|posilka|посылк)\S*[^.\n]{0,60}(?:to'la|yig'im|оплат)",
     ), Reason(
         "Pul olish uchun avval pul to'lash talab qilinmoqda",
         "Asks you to pay first in order to receive money",
@@ -103,10 +123,20 @@ RULES: list[Rule] = [
         "Схема мошенничества на OLX: «получите оплату по ссылке»",
     )),
     Rule("easy_money", 0.35, _r(
-        r"kuniga \d+", r"oyiga \d+ ?(?:\$|dollar|mln)", r"passiv daromad", r"oson pul", r"uyda (?:ishlash|o'tirib)",
-        r"masofaviy ish", r"layk bosib", r"kripto(?:valyuta)?", r"investitsiya", r"x2|ikki barobar",
-        r"пассивн\w+ доход", r"заработ\w* от \d+", r"работа на дому", r"за лайки", r"инвестиц", r"удвои",
-        r"passive income", r"earn \$?\d+ (?:a|per) day", r"work from home", r"double your",
+        # a promise of easy/guaranteed income; plain words like "investment" or "remote job" must not match
+        r"kuniga \d[\d\s]*(?:so'm|ming|\$|dollar)", r"oyiga \d+ ?(?:\$|dollar|mln)", r"passiv daromad", r"oson pul",
+        r"uyda o'tirib", r"(?:uyda|masofaviy)[^.\n]{0,30}(?:kuniga|oyiga) \d", r"layk bos",
+        r"investitsiya qiling", r"(?:kripto|investitsiya)\S*[^.\n]{0,40}(?:foyda|daromad|x2|ikki barobar)",
+        r"(?:x2|ikki barobar) qil", r"pul\S*[^.\n]{0,25}(?:x2|ikki barobar)",
+        r"пассивн\w+ доход", r"заработ\w* от \d+", r"за лайки", r"(?:крипт|инвестиц)\S*[^.\n]{0,40}(?:прибыл|доход|удво)",
+        r"удво\w* (?:ваш|депозит|деньги)",
+        r"passive income", r"earn \$?\d+ (?:a|per) day", r"work from home[^.\n]{0,40}\$\d", r"double your",
+    
+        r"\d+ ?% (?:foyda|daromad)\S* kafolat",
+        r"(?:kafolatlangan|гарантир\w*|guaranteed) (?:\d+ ?% )?(?:foyda|прибыл|returns?)",
+        r"\d+ ?% (?:прибыли|weekly returns|returns)",
+        r"инвестируйте",
+        r"invest now",
     ), Reason(
         "Oson va tez daromad va'dasi",
         "Promises easy, fast money",
@@ -132,10 +162,34 @@ RULES: list[Rule] = [
         r"muammoga (?:qoldim|tushdim)", r"hech kimga aytma",
         r"(?:мама|папа),? это я", r"мой новый номер", r"попал в (?:беду|аварию)", r"никому не говори",
         r"(?:mom|dad),? it'?s me", r"my new number", r"don'?t tell anyone",
+    
+        r"telefonim (?:buzildi|yo'qoldi|o'g'irlandi)",
+        r"(?:do'stimning|boshqa (?:odamning )?)raqam(?:i|idan)",
+        r"телефон (?:сломался|разбился|потерял)",
+        r"с (?:чужого|другого) номера",
     ), Reason(
         "Qarindosh nomidan pul so'rash — avval o'sha odamga eski raqamiga qo'ng'iroq qiling",
         "Someone posing as a relative asking for money — call them on their old number",
         "Просят деньги от имени родственника — позвоните ему на старый номер",
+    )),
+    Rule("threat_payment", 0.45, _r(
+        r"jarima(?:ni)? (?:darhol |tezda |zudlik bilan )?to'la", r"to'lamasangiz", r"sud ishi ochiladi", r"hibsga olinasiz",
+        r"(?:hisob|karta)(?:ingiz)? (?:musodara|arest|muzlatiladi)",
+        r"оплатите штраф", r"иначе (?:арест|блокировк|суд|уголовн)", r"возбуждено (?:уголовное|дело)", r"арест счет",
+        r"pay the fine", r"(?:or|otherwise) (?:your account|you) will be (?:seized|arrested|blocked|frozen)", r"legal action",
+    ), Reason(
+        "Tahdid va pul talabi («to'lamasangiz — sud/arest»). Davlat idoralari messenjer orqali bunday talab qilmaydi",
+        "Threatens you and demands payment (\"pay or face court/arrest\"). Real authorities don't do this via messengers",
+        "Угрожают и требуют оплату («заплатите, иначе суд/арест»). Госорганы так не делают через мессенджеры",
+    )),
+    Rule("fake_admission", 0.5, _r(
+        r"(?:kirish|qabul|o'qishga)\S*\s(?:\S+\s){0,2}kafolatla", r"komissiya(?:si)? a'zosiman",
+        r"гарантирую поступление", r"я (?:—\s)?член (?:приёмной |приемной )?комиссии",
+        r"guarantee (?:your )?(?:acceptance|admission)", r"i'?m (?:on|a member of) the admission committee",
+    ), Reason(
+        "Pul evaziga o'qishga kirish yoki grantni «kafolatlash». Haqiqiy tanlovlarda bunday bo'lmaydi",
+        "Promises guaranteed admission or a grant for money. Real selection processes never work like this",
+        "Обещают «гарантированное» поступление или грант за деньги. Так не бывает в настоящих конкурсах",
     )),
     Rule("gov_impersonation", 0.25, _r(
         r"soliq qo'mitasi", r"davlat xizmatlari", r"kompensatsiya", r"subsidiya", r"jarima(?:ni)? to'la",
@@ -149,6 +203,10 @@ RULES: list[Rule] = [
 ]
 
 
+RULES = [Rule(r.name, r.weight, r.pattern, r.reason, r.name in AMPLIFIERS) for r in RULES]
+
+
 def match_rules(text: str) -> list[Rule]:
+    """All rules that match (amplifiers included; the analyzer decides whether they count)."""
     texts = variants(text)
     return [rule for rule in RULES if any(rule.pattern.search(t) for t in texts)]

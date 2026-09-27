@@ -11,6 +11,9 @@ Community blocklist: the 🚩 button (or /report in groups) records scam sites,
 phone numbers and Telegram accounts. Once REPORT_THRESHOLD different people
 report the same one, everyone who meets it gets a warning.
 
+Inline mode: in any chat, "@bot <link or text>" shows a verdict card; tapping it
+posts the verdict into the chat, signed by the bot (a built-in growth loop).
+
 Groups: silently scans every message (when the bot is an admin or privacy
 mode is off) and warns only about dangerous ones. /check and /report as a
 reply work on a specific message.
@@ -38,7 +41,8 @@ from aiogram.exceptions import TelegramBadRequest, TelegramNotFound, TelegramUna
 from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandStart
 from aiogram.types import (
     BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatMemberUpdated,
-    ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, Message, ReplyKeyboardMarkup,
+    ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery,
+    InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
 from scamguard import blocklist, ocr
@@ -89,6 +93,7 @@ class Result:
     file_level: Level | None = None
     text: str = ""
     forward: tuple[str, str] | None = None
+    trust: list = field(default_factory=list)
 
 
 _pending: OrderedDict[str, Pending] = OrderedDict()           # button key -> Pending
@@ -230,6 +235,19 @@ def community_reasons(text: str, forward) -> list[Reason]:
     return reasons
 
 
+def evaluate_text(text: str) -> Result:
+    """Check plain text (inline mode): rules, links, AI model and the community blocklist."""
+    verdict = analyze(text)
+    reasons, score, level = list(verdict.reasons), verdict.score, verdict.level
+    hits = community_reasons(text, None)
+    if hits:
+        reasons = hits + reasons
+        score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
+        level = max(level, level_for(score), key=LEVEL_ORDER.index)
+    trust = verdict.trust if level == Level.SAFE else []
+    return Result(level, reasons, score, None, text, None, trust)
+
+
 def evaluate(message: Message, extra_text: str = "") -> Result | None:
     """Full check of a message: text, hidden links, file, OCR text and the community blocklist."""
     text = "\n".join(filter(None, [full_text(message), extra_text]))
@@ -257,12 +275,14 @@ def evaluate(message: Message, extra_text: str = "") -> Result | None:
         reasons = hits + reasons
         score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
         level = max(level, level_for(score), key=LEVEL_ORDER.index)
-    return Result(level, reasons, score, file_level, text, forward)
+    trust = verdict.trust if (verdict and level == Level.SAFE) else []
+    return Result(level, reasons, score, file_level, text, forward, trust)
 
 
 def render(lang: str, r: Result, file_name: str | None = None, source: str | None = None, ocr_text: str = "") -> str:
     level, reasons, score, file_level = r.level, r.reasons, r.score, r.file_level
-    lines = [t(f"v_{level.value}", lang), f"{t('risk', lang)}: <b>{round(score * 100)}%</b>"]
+    risk = t("risk_low", lang) if level == Level.SAFE else f"{round(score * 100)}%"
+    lines = [t(f"v_{level.value}", lang), f"{t('risk', lang)}: <b>{risk}</b>"]
     if ocr_text:
         snippet = " ".join(ocr_text.split())
         snippet = snippet[:160] + ("…" if len(snippet) > 160 else "")
@@ -274,6 +294,9 @@ def render(lang: str, r: Result, file_name: str | None = None, source: str | Non
     if reasons:
         lines.append(f"\n<b>{t('why', lang)}</b>")
         lines += [f"• {html.escape(r.text(lang))}" for r in reasons[:8]]
+    if r.trust and level == Level.SAFE:
+        lines.append(f"\n<b>{t('trust', lang)}</b>")
+        lines += [f"✅ {html.escape(x.text(lang))}" for x in r.trust]
     advice = f"fa_{level.value}" if file_level is not None and level == file_level else f"a_{level.value}"
     lines.append(f"\n💡 {t(advice, lang)}")
     return "\n".join(lines)
@@ -437,6 +460,49 @@ async def group_scan(message: Message) -> None:
 async def on_added_to_group(event: ChatMemberUpdated) -> None:
     if event.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
         await event.bot.send_message(event.chat.id, t("group_hello", lang_of(event.from_user)))
+
+
+# ======================= inline mode =======================
+
+@dp.inline_query()
+async def on_inline(query: InlineQuery) -> None:
+    lang = lang_of(query.from_user)
+    text = query.query.strip()
+    open_bot = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=t("inline_btn", lang), url=f"https://t.me/{BOT_USERNAME}?start=inline")]])
+    if len(text) < 4:
+        result = InlineQueryResultArticle(
+            id="help", title=t("inline_help_title", lang),
+            description=t("inline_help_desc", lang, bot=BOT_USERNAME),
+            input_message_content=InputTextMessageContent(message_text=t("inline_help_msg", lang, bot=BOT_USERNAME)),
+            reply_markup=open_bot,
+        )
+        await query.answer([result], cache_time=300, is_personal=True)
+        return
+
+    r = evaluate_text(text)
+    headline = t(f"v_{r.level.value}", lang).replace("<b>", "").replace("</b>", "")
+    top_reason = r.reasons[0].text(lang) if r.reasons else (r.trust[0].text(lang) if r.trust else t("inline_safe_desc", lang))
+    snippet = " ".join(text.split())
+    snippet = snippet[:120] + ("…" if len(snippet) > 120 else "")
+    body = render(lang, r).split("\n", 1)          # verdict header + details
+    message = (f"{body[0]}\n{t('inline_checked', lang)}: <code>{html.escape(snippet)}</code>\n{body[1]}"
+               f"\n\n<i>{t('inline_by', lang, bot=BOT_USERNAME)}</i>")
+    result = InlineQueryResultArticle(
+        id=f"v{abs(hash(text)) % 10**12}",
+        title=headline if r.level == Level.SAFE else f"{headline} · {round(r.score * 100)}%",
+        description=top_reason[:120],
+        input_message_content=InputTextMessageContent(message_text=message, link_preview_options={"is_disabled": True}),
+        reply_markup=open_bot,
+    )
+    await query.answer([result], cache_time=30, is_personal=True)
+
+
+@dp.chosen_inline_result()
+async def on_inline_chosen(chosen: ChosenInlineResult) -> None:
+    """Counts inline checks in the stats (needs /setinlinefeedback in @BotFather)."""
+    if chosen.result_id != "help":
+        storage.record_check(evaluate_text(chosen.query).level.value)
 
 
 # ======================= callbacks =======================

@@ -35,8 +35,29 @@ OFFICIAL_DOMAINS: dict[str, set[str]] = {
     "telegram": {"telegram.org", "t.me", "telegram.me"},
     "instagram": {"instagram.com"},
     "google": {"google.com"},
+    "elyurt": {"el-yurt.uz"},
 }
-_ALL_OFFICIAL = {d for ds in OFFICIAL_DOMAINS.values() for d in ds}
+
+BRAND_LABELS = {"olx": "OLX", "mygov": "my.gov.uz", "elyurt": "El-yurt umidi", "tbcbank": "TBC Bank",
+                "xalqbank": "Xalq banki", "uzcard": "Uzcard", "kapitalbank": "Kapitalbank"}
+
+# Well-known Uzbek organisations: never flagged, and shown as a ✅ trust signal.
+# (Kept separate from the brand list above: short names like "kun" would cause
+# false lookalike matches if they were treated as brands.)
+TRUSTED_DOMAINS = {
+    # foundations, government, education
+    "el-yurt.uz", "cbu.uz", "soliq.uz", "edu.uz", "it-park.uz", "uzedu.uz", "president.uz",
+    "inha.uz", "wiut.uz", "tuit.uz", "nuu.uz", "tdiu.uz",
+    # news media
+    "kun.uz", "daryo.uz", "gazeta.uz", "uza.uz", "podrobno.uz", "spot.uz", "xabar.uz", "anhor.uz",
+    # banks, payments, telecom, marketplaces
+    "nbu.uz", "sqb.uz", "asakabank.uz", "aloqabank.uz", "ofb.uz", "davrbank.uz", "trastbank.uz",
+    "infinbank.uz", "turonbank.uz", "ipakyulibank.uz", "beeline.uz", "ucell.uz", "mobi.uz",
+    "uzmobile.uz", "hh.uz", "uztelecom.uz",
+}
+TRUSTED_SUFFIXES = (".gov.uz",)   # government domains (my.gov.uz, lex.gov.uz ...)
+
+_ALL_OFFICIAL = {d for ds in OFFICIAL_DOMAINS.values() for d in ds} | TRUSTED_DOMAINS
 
 SHORTENERS = {
     "bit.ly", "tinyurl.com", "cutt.ly", "clck.ru", "goo.su", "t.ly", "is.gd",
@@ -75,6 +96,7 @@ class LinkReport:
     host: str
     score: float = 0.0
     reasons: list[Reason] = field(default_factory=list)
+    official: bool = False   # the link goes to a known official site
 
     def add(self, weight: float, reason: Reason) -> None:
         self.score = min(1.0, self.score + weight)
@@ -124,7 +146,8 @@ def _registered_domain(host: str) -> str:
 
 
 def _is_official(host: str) -> bool:
-    return any(host == d or host.endswith("." + d) for d in _ALL_OFFICIAL)
+    return any(host == d or host.endswith("." + d) for d in _ALL_OFFICIAL) or host.endswith(TRUSTED_SUFFIXES) \
+        or host == "gov.uz"
 
 
 def _levenshtein(a: str, b: str) -> int:
@@ -160,13 +183,15 @@ def analyze_url(url: str) -> LinkReport:
         return report
 
     if _is_official(host):
+        report.official = True
         return report  # exact official domain or its subdomain
 
     brand = _impersonated_brand(host)
     if brand:
         real = ", ".join(sorted(OFFICIAL_DOMAINS[brand]))
+        brand = BRAND_LABELS.get(brand, brand.capitalize())
         report.add(0.75, Reason(
-            f"'{host}' — {brand} ga o'xshatilgan soxta domen (asl manzil: {real})",
+            f"«{host}» — {brand} saytiga o'xshatib yasalgan soxta sayt (asl manzil: {real})",
             f"'{host}' imitates {brand} (the real domain is {real})",
             f"«{host}» подделка под {brand} (настоящий сайт: {real})",
         ))
