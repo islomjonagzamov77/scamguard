@@ -10,7 +10,16 @@ message *wants*, not only which words it contains.
    and write the fix so it is general. Otherwise the test stops measuring anything.
 3. Every row is reviewed by a person. `claude-draft` in `reviewer` means nobody has checked it yet.
 
-After every labeling session, run:
+The easy way (no CSV editing): a program shows one message at a time.
+
+```bash
+python review.py        # review drafts: Enter = agree, 1/2/3 = change the label, q = save and quit
+python review.py add    # add a new message, e.g. a real one someone forwarded to you
+```
+
+Read every message before you answer. Pressing Enter without reading makes the test worthless.
+
+If you edit the CSV by hand, run this after every labeling session:
 
 ```bash
 python evaluate.py --check    # finds typos and format mistakes
