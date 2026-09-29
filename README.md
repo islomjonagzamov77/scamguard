@@ -70,7 +70,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 154 tests incl. a simulated Telegram chat and real OCR
+python -m pytest                   # 167 tests incl. a simulated Telegram chat and real OCR
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
@@ -110,7 +110,8 @@ It is never used for training or for tuning rules. See `data/eval/LABELING_GUIDE
 
 ```bash
 python evaluate.py --check   # validate the file
-python evaluate.py           # scams caught, false alarms, results by intent, mistakes
+python evaluate.py --split dev    # the half we study: every mistake is shown
+python evaluate.py --split test   # the held-out half: totals only (results in data/eval/RESULTS.md)
 ```
 
 ## ⚠️ Honest note on the current numbers

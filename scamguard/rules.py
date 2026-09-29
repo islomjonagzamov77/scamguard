@@ -39,7 +39,11 @@ RULES: list[Rule] = [
     Rule("secret_code", 0.6, _r(
         # "(?!ma)" keeps real bank OTPs ("kodni aytmang" = "don't tell the code") from matching
         r"(?:sms[ -]?kod|kod)\S*\s(?:\S+\s){0,3}?(?:yubor|ayt|kirit|jo'nat)(?!ma)",
-        r"cvv", r"amal qilish muddat", r"karta(?:ngiz)? (?:raqam|ma'lumot)",
+        r"cvv", r"amal qilish muddat",
+        # YOUR card details, or card details you are told to send/enter. A seller offering to send
+        # their own card number ("karta raqamini yozib yuboraymi?") is not asking for yours.
+        r"kartangiz\S* (?:raqam|ma'lumot)",
+        r"karta (?:raqam|ma'lumot)\S* (?:\S+ ){0,3}?(?:yubor|kirit|ayt|jo'nat|yoz)(?:ing|ingiz|inglar)\b",
         r"(?:продиктуйте|назовите|отправьте|сообщите|введите) код", r"код из смс",
         r"(?:номер|данные) (?:вашей )?карты",
         r"срок действия карты", r"(?:send|tell|share|give)(?: me)?(?: the| your)? (?:code|otp|pin)",

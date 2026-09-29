@@ -101,6 +101,9 @@ class Result:
 
 def record(r: "Result") -> None:
     """Count a check in the anonymous stats and the public radar (category + fake-site domains only)."""
+    if "needs_context" in r.signals:        # a "can't tell" question is not a detected scam on the radar
+        storage.record_check("safe")
+        return
     storage.record_check(r.level.value)
     if r.level != Level.SAFE:
         storage.record_category(radar.primary_category(r.signals))

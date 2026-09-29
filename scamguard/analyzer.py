@@ -11,6 +11,8 @@ Design principle: every warning must have a concrete, human-readable reason.
     *mentions* scam words, so text rules and the model count for little there and
     their "asks for your code" reasons are not shown: nothing in it asks for anything.
     Links are judged on their own, because a scam link is dangerous to open wherever it appears.
+  * "Can't tell": a request for money with no other warning sign could be a real shop or a
+    scammer. The bot doesn't guess 🟢 or 🔴: it says 🟡 and asks one question instead.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from . import model
-from .intent import INFO, REPORT, REQUEST, WARNING, Intent, detect
+from .intent import INFO, QUOTE, REPORT, REQUEST, WARNING, Intent, detect
 from .links import LinkReport, analyze_links
 from .reasons import Reason
 from .rules import match_rules
@@ -29,6 +31,19 @@ DANGEROUS_AT = 0.65
 MODEL_MIN = 0.80          # model probability needed before it adds any risk
 MODEL_MAX_EVIDENCE = 0.5  # model alone -> at most SUSPICIOUS
 MENTION_WEIGHT = 0.3      # text rules in a warning/story count this much
+
+
+NEEDS_CONTEXT = Reason(
+    "Xabar pul so'rayapti, lekin firibgarlik belgisi aniq emas. Buni kutganmidingiz? Qabul qiluvchini "
+    "o'zingiz tekshiring: tanish bo'lsa — o'zingiz qo'ng'iroq qiling, do'kon bo'lsa — rasmiy sayt yoki ilova "
+    "orqali. Tekshirmaguncha pul o'tkazmang.",
+    "This message asks for money, but there's no clear sign of fraud. Were you expecting it? Check the "
+    "recipient yourself: call the person you know, or use the shop's official site or app. Don't send "
+    "money until you have.",
+    "Сообщение просит деньги, но явных признаков мошенничества нет. Вы этого ждали? Проверьте получателя "
+    "сами: позвоните знакомому, у магазина — через официальный сайт или приложение. Не переводите деньги, "
+    "пока не проверите.",
+)
 
 
 class Level(str, Enum):
@@ -113,7 +128,11 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
 
     reasons: list[Reason] = []
     trust: list[Reason] = []
-    if level != Level.SAFE:
+    needs_context = level == Level.SAFE and intent.asks_money and intent.kind in (REQUEST, QUOTE)
+    if needs_context:
+        level, score = Level.SUSPICIOUS, max(score, SUSPICIOUS_AT)
+        reasons.append(NEEDS_CONTEXT)
+    elif level != Level.SAFE:
         if intent.kind == REQUEST:
             reasons.append(Reason(
                 f"Xabar sizdan buni talab qilyapti: «{intent.evidence}»",
@@ -158,4 +177,6 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
         signals.extend(link.signals)
     if m > 0:
         signals.append("ai_model")
+    if needs_context:
+        signals.append("needs_context")
     return Verdict(score, level, reasons, links, rule_score, link_score, p, trust, signals, intent)

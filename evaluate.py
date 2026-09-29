@@ -3,14 +3,22 @@
     python evaluate.py              # check the file, then score the analyzer
     python evaluate.py --check      # only check the file format (run after every labeling session)
     python evaluate.py --no-model   # rules and links only
+    python evaluate.py --split dev  # the half we study: shows every mistake
+    python evaluate.py --split test # the held-out half: totals only, never the mistakes
 
-The test set is NEVER used for training (train.py only reads data/*.csv) and rules must
-never be tuned by looking at it. Otherwise the numbers stop meaning anything.
+The set is NEVER used for training (train.py only reads data/*.csv).
+
+Two halves, split by scheme (group) so near-copies of one scam never sit on both sides:
+  dev  = groups g01-g07 (written while looking at the code) + odd-numbered groups
+  test = even-numbered groups from g08 on
+Mistakes are studied on dev only. The test half is run rarely, and it deliberately
+never prints which messages failed, so nobody can tune the bot to it by accident.
 See data/eval/LABELING_GUIDE.md for how rows are labeled.
 """
 
 import argparse
 import csv
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -51,7 +59,14 @@ def check(rows: list[dict]) -> list[str]:
                 problems.append(f"{where}: {col}='{row[col]}' - use one of {sorted(allowed)}")
         if row["evidence"] and row["evidence"] not in row["text"]:
             problems.append(f"{where}: evidence must be copied exactly from the text")
+        if row["group"] and not re.match(r"g\d+", row["group"]):
+            problems.append(f"{where}: group must start with g and a number, e.g. g08-job-fee")
     return problems
+
+
+def split_of(group: str) -> str:
+    n = int(re.match(r"g(\d+)", group).group(1))
+    return "dev" if n <= 7 or n % 2 == 1 else "test"
 
 
 def outcome(label: str, level: str) -> str:
@@ -71,6 +86,8 @@ def main() -> None:
     ap.add_argument("--file", type=Path, default=DEFAULT_FILE)
     ap.add_argument("--check", action="store_true", help="only validate the file")
     ap.add_argument("--no-model", action="store_true", help="rules and links only")
+    ap.add_argument("--split", choices=["all", "dev", "test"], default="all",
+                    help="dev = the half we study, test = the held-out half (totals only)")
     args = ap.parse_args()
 
     rows = load(args.file)
@@ -90,6 +107,9 @@ def main() -> None:
 
     from scamguard.analyzer import analyze
 
+    if args.split != "all":
+        rows = [r for r in rows if split_of(r["group"]) == args.split]
+        print(f"  split: {args.split} ({len(rows)} rows)")
     results = []
     for r in rows:
         v = analyze(r["text"], use_model=not args.no_model)
@@ -118,6 +138,11 @@ def main() -> None:
           "  (every row in the group handled correctly)")
 
     wrong = [x for x in results if x[3] != "ok"]
+    if args.split != "dev":
+        if wrong:
+            print(f"\n{len(wrong)} mistake(s). Study them with:  python evaluate.py --split dev"
+                  + ("" if args.split == "test" else "   (test mistakes are never shown)"))
+        return
     if wrong:
         print("\nMistakes")
         for r, level, score, what in wrong:

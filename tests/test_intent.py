@@ -31,6 +31,19 @@ CASES = [
     ("Никогда не сообщайте код из СМС, банк никогда не просит его по телефону.", "warning", "safe"),
     ("Мне вчера написали, что я выиграл приз и надо назвать код из смс, я не поверил.", "report", "safe"),
     ("Onamga \"kartangiz bloklandi, kodni yuboring\" deb SMS kelibdi, biz bankka bordik.", "report", "safe"),
+    # --- stories told with single quotes or about other people --------------------------
+    ("Opamga 'hisobingiz bloklandi, kodni ayting' deb qo'ng'iroq qilishibdi, u go'shakni qo'yibdi.", "report", "safe"),
+    ("Jiyanim soxta saytga karta ma'lumotini kiritibdi, keyin kartadan pul yechilibdi.", "report", "safe"),
+    ("Коллеге написали, что посылка на таможне, она перешла по ссылке и ввела данные карты.", "report", "safe"),
+    # --- secrecy is a red flag, not advice -------------------------------------------------
+    ("Aksiya: 500$ qo'shsangiz, bir haftada 1500$ qaytaramiz. Hech kimga aytmang, joy kam.", "request", "flag"),
+    ("I need only $600 for the customs fee. Please send it today and don't tell your parents.", "request", "flag"),
+    ("Мама, я в беде, срочно отдай деньги человеку, который придёт, никому не говори.", "request", "flag"),
+    # --- a story first, then the ask -------------------------------------------------------
+    ("Aka, men hozir Toshkentda emasman, telefonim o'chib qoldi. 500 ming tashlab tur, ertaga qaytaraman.",
+     "request", "flag"),
+    # --- safe advice phrased as a request ----------------------------------------------------
+    ("Ofisga .apk fayl kelsa ochmanglar, darhol IT bo'limga xabar beringlar.", "warning", "safe"),
     # --- nothing to decide -------------------------------------------------------------
     ("Ertaga soat 10 da uchrashamiz.", "info", "safe"),
 ]
@@ -67,3 +80,26 @@ def test_warning_about_a_link_does_not_hide_the_link():
 def test_evidence_never_echoes_card_numbers():
     ev = detect("Pulni 8600 1234 5678 9012 kartaga hoziroq tashlang").evidence
     assert "1234" not in ev and "<CARD>" in ev
+
+
+@pytest.mark.parametrize("text", [
+    "Buyurtmangiz uchun 80 000 so'mni shu kartaga o'tkazing.",
+    "Oldindan 30% to'lov qilsangiz, ertaga yetkazib beramiz.",
+    "Please pay the $40 deposit to book the room.",
+])
+def test_money_request_without_scam_signs_asks_a_question(text):
+    """Could be a real shop or a scammer: 🟡 plus a question, never a confident 🟢 or 🔴."""
+    v = analyze(text)
+    assert v.level == Level.SUSPICIOUS and "needs_context" in v.signals
+    assert v.reasons[0].en.startswith("This message asks for money, but there's no clear sign of fraud")
+
+
+def test_seller_sending_their_own_card_is_not_asking_for_yours():
+    v = analyze("Buyurtma uchun oldindan 50 000 so'm olamiz. Karta raqamini yozib yuboraymi?")
+    assert "secret_code" not in v.signals
+
+
+def test_needs_context_is_not_counted_as_a_scam_on_the_radar():
+    from scamguard import radar
+    v = analyze("Buyurtmangiz uchun 80 000 so'mni shu kartaga o'tkazing.")
+    assert radar.primary_category(v.signals) == "other" and "needs_context" in v.signals

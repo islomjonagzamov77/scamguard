@@ -92,3 +92,9 @@ long and short messages, and emojis.
 - as many `real` (masked) rows as you can collect with permission. These count the most.
 
 When the file reaches 150 reviewed rows, we freeze it as **v1** and report all results against it.
+
+## Dev and test halves
+
+`evaluate.py` splits the set by scheme group: **dev** (g01–g07 and odd groups) is where mistakes are studied;
+**test** (even groups from g08) is held out and only ever shows totals. New groups you add follow the same rule
+automatically. Results of every test run go in `RESULTS.md`.

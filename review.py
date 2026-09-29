@@ -27,7 +27,7 @@ COLOR = {"scam": RED, "safe": GREEN, "needs_context": YELLOW}
 def save(rows: list[dict]) -> None:
     tmp = DEFAULT_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=COLUMNS)
+        writer = csv.DictWriter(f, fieldnames=COLUMNS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     os.replace(tmp, DEFAULT_FILE)                 # never leaves a half-written file behind
