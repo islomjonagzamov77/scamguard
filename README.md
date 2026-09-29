@@ -52,6 +52,12 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
           analyzer.py      noisy-OR combination → score, level, reasons
 ```
 
+- **Intent first** (`intent.py`): before scoring, the bot decides what the sender wants from the reader.
+  It can be a **request** ("SMS kodni yuboring"), a **warning** ("SMS kodni hech kimga aytmang"), a **report**
+  of something that already happened ("kecha mendan kodimni so'rashdi, bermadim") or a **quote** ("menga shunday xabar keldi… rostmi?").
+  Warnings and stories only *mention* scam words, so they aren't accused of asking for anything, and every
+  verdict quotes the sentence it is based on. A real ask always wins, even when scammers add warning words, and
+  informal secrecy ("никому не говори", "don't tell anyone") is treated as a red flag, not as advice.
 - **Cyrillic Uzbek** is transliterated to Latin first, so one rule set covers both scripts.
 - **Lookalike detection** catches `c1ick.uz`, `paymе.uz` (with a Cyrillic "е"), `0lx-uz.com`, and `click-uz-bonus.xyz`, using homoglyph folding and edit distance against a list of official domains.
 - **Hidden links**: the bot also checks URLs hidden behind Telegram text links and inline buttons.
@@ -64,7 +70,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 135 tests incl. a simulated Telegram chat and real OCR
+python -m pytest                   # 154 tests incl. a simulated Telegram chat and real OCR
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
@@ -95,6 +101,17 @@ Every `git push` then redeploys automatically.
 | `bot.py` | Telegram bot (aiogram 3) with feedback buttons |
 | `train.py` | Cross-validated comparison: rules vs. model vs. full system |
 | `data/seed_dataset.csv` | 99 **hand-written example** messages used to bootstrap training |
+
+## Evaluation set
+
+`data/eval/` is a separate, human-reviewed test set of **paired examples**: the same scam wording as a request,
+a warning and a report. The labels ask one question: *what should the bot answer if this text were forwarded to it?*
+It is never used for training or for tuning rules. See `data/eval/LABELING_GUIDE.md`.
+
+```bash
+python evaluate.py --check   # validate the file
+python evaluate.py           # scams caught, false alarms, results by intent, mistakes
+```
 
 ## ⚠️ Honest note on the current numbers
 

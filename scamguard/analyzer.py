@@ -7,6 +7,10 @@ Design principle: every warning must have a concrete, human-readable reason.
     their own and only count when a core scam signal is also present.
   * A SAFE verdict never lists risk reasons. It may list trust signals instead
     (e.g. the link goes to an official site).
+  * Intent comes first (see intent.py). A warning or a story about the past only
+    *mentions* scam words, so text rules and the model count for little there and
+    their "asks for your code" reasons are not shown: nothing in it asks for anything.
+    Links are judged on their own, because a scam link is dangerous to open wherever it appears.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from . import model
+from .intent import INFO, REPORT, REQUEST, WARNING, Intent, detect
 from .links import LinkReport, analyze_links
 from .reasons import Reason
 from .rules import match_rules
@@ -23,6 +28,7 @@ SUSPICIOUS_AT = 0.35
 DANGEROUS_AT = 0.65
 MODEL_MIN = 0.80          # model probability needed before it adds any risk
 MODEL_MAX_EVIDENCE = 0.5  # model alone -> at most SUSPICIOUS
+MENTION_WEIGHT = 0.3      # text rules in a warning/story count this much
 
 
 class Level(str, Enum):
@@ -42,6 +48,7 @@ class Verdict:
     model_score: float | None = None
     trust: list[Reason] = field(default_factory=list)
     signals: list[str] = field(default_factory=list)   # names of the rules/link checks that counted
+    intent: Intent = field(default_factory=lambda: Intent(INFO))
 
     def to_dict(self, lang: str = "uz") -> dict:
         return {
@@ -49,6 +56,7 @@ class Verdict:
             "level": self.level.value,
             "reasons": [r.text(lang) for r in self.reasons],
             "trust": [r.text(lang) for r in self.trust],
+            "intent": {"kind": self.intent.kind, "evidence": self.intent.evidence},
             "components": {
                 "rules": round(self.rule_score, 3),
                 "links": round(self.link_score, 3),
@@ -90,6 +98,13 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
     p = model_proba if model_proba is not None else (model.predict_proba(text) if use_model else None)
     m = model_evidence(p)
 
+    intent = detect(text)
+    mentions_only = intent.kind in (WARNING, REPORT)
+    if mentions_only:
+        rule_score *= MENTION_WEIGHT
+        m = 0.0
+        has_core_signal = link_score > 0
+
     score = _noisy_or([rule_score, link_score, m])
     level = level_for(score)
     if not has_core_signal and level == Level.DANGEROUS:
@@ -99,7 +114,14 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
     reasons: list[Reason] = []
     trust: list[Reason] = []
     if level != Level.SAFE:
-        reasons = [r.reason for r in sorted(counted, key=lambda r: -r.weight)]
+        if intent.kind == REQUEST:
+            reasons.append(Reason(
+                f"Xabar sizdan buni talab qilyapti: «{intent.evidence}»",
+                f"The message asks you to do this: «{intent.evidence}»",
+                f"Сообщение просит вас сделать это: «{intent.evidence}»",
+            ))
+        if not mentions_only:
+            reasons += [r.reason for r in sorted(counted, key=lambda r: -r.weight)]
         for link in links:
             reasons.extend(link.reasons)
         if m > 0:
@@ -118,10 +140,22 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
                 f"The link goes to an official site: {sites}",
                 f"Ссылка ведёт на официальный сайт: {sites}",
             ))
+        if intent.kind == WARNING and counted:
+            trust.append(Reason(
+                f"Bu ogohlantirish — xabar sizdan hech narsa so'ramayapti: «{intent.evidence}»",
+                f"This is a warning — the message doesn't ask you for anything: «{intent.evidence}»",
+                f"Это предупреждение — сообщение ничего у вас не просит: «{intent.evidence}»",
+            ))
+        elif intent.kind == REPORT and counted:
+            trust.append(Reason(
+                f"Bu bo'lib o'tgan voqea haqida hikoya — xabar sizdan hech narsa so'ramayapti: «{intent.evidence}»",
+                f"This describes something that already happened — it doesn't ask you for anything: «{intent.evidence}»",
+                f"Это рассказ о случившемся — сообщение ничего у вас не просит: «{intent.evidence}»",
+            ))
 
-    signals = [r.name for r in sorted(counted, key=lambda r: -r.weight)]
+    signals = [] if mentions_only else [r.name for r in sorted(counted, key=lambda r: -r.weight)]
     for link in links:
         signals.extend(link.signals)
     if m > 0:
         signals.append("ai_model")
-    return Verdict(score, level, reasons, links, rule_score, link_score, p, trust, signals)
+    return Verdict(score, level, reasons, links, rule_score, link_score, p, trust, signals, intent)
