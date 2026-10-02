@@ -102,6 +102,24 @@ Every `git push` then redeploys automatically.
 | `train.py` | Cross-validated comparison: rules vs. model vs. full system |
 | `data/seed_dataset.csv` | 99 **hand-written example** messages used to bootstrap training |
 
+## Collecting real messages
+
+Everything in `data/seed_*.csv` was written by hand, so the bot learned how *we imagine* scams look.
+`collect.py` turns real messages and screenshots into masked, labeled rows in a few seconds:
+
+```bash
+python collect.py                      # paste messages one by one
+python collect.py screenshots/         # OCR every image in a folder
+python collect.py feedback data/feedback_export.csv   # review what bot users sent
+python collect.py score                # real-world numbers on messages the bot never trained on
+```
+
+- Card numbers, phones, emails and @usernames are masked automatically. Remove people's names yourself (press `e`).
+- Duplicates of anything already in any dataset (training or test) are skipped.
+- A fixed fingerprint split sends about 80% to `data/real_messages.csv` (training) and 20% to
+  `data/eval/real_holdout.csv`, which `train.py` never reads. The holdout gives the honest real-world number.
+- For training rows, the bot's verdict is shown **after** you label, so you see where it fails without being biased by it.
+
 ## Evaluation set
 
 `data/eval/` is a separate, human-reviewed test set of **paired examples**: the same scam wording as a request,
