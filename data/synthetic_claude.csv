@@ -1,0 +1,229 @@
+text,label,lang,category,source
+"Assalomu alaykum! Jiyanim tanlovda qatnashyapti, iltimos ovoz bering, bir daqiqa vaqtingiz ketadi: konkurs-ovoz.top/vote",1,uz,account_takeover,synthetic_claude
+"Salom, shu linkdan dugonamga ovoz berib yuborolmaysizmi? Telegram orqali kirish kerak ekan: t-golos.site",1,uz,account_takeover,synthetic_claude
+"Привет! Проголосуй пожалуйста за мою племянницу в конкурсе, нужно войти через телеграм: golos-detki.online",1,ru,account_takeover,synthetic_claude
+"Ассалому алайкум, синглим расм танловида қатнашяпти, илтимос овоз беринг: tanlov-ovoz.xyz",1,uz,account_takeover,synthetic_claude
+Telegram xavfsizlik xizmati: akkauntingiz 24 soat ichida o'chiriladi. Saqlab qolish uchun tasdiqlash kodini shu botga yuboring,1,uz,account_takeover,synthetic_claude
+Telegram Support: Your account has been reported for spam. Verify ownership within 12 hours or it will be deleted: telegram-verify.site,1,en,account_takeover,synthetic_claude
+"Служба поддержки Telegram: на ваш аккаунт поступили жалобы. Подтвердите номер, отправив код из сообщения, иначе аккаунт будет удалён",1,ru,account_takeover,synthetic_claude
+Sizga Telegram Premium sovg'a qilindi! Faollashtirish uchun raqamingizni va kelgan kodni kiriting: tg-premium-gift.click,1,uz,account_takeover,synthetic_claude
+"Вам подарили Telegram Premium на 1 год! Активируйте подарок по ссылке, войдя в аккаунт: premium-podarok.top",1,ru,account_takeover,synthetic_claude
+"Do'stim, tasodifan senga kod yuborib qo'ydim, shu 5 xonali kodni menga tashlab yubora olasanmi? Shoshilinch",1,uz,account_takeover,synthetic_claude
+"Ой, я случайно отправил тебе код на твой номер, перешли мне его пожалуйста, очень срочно",1,ru,account_takeover,synthetic_claude
+"Hey, I accidentally sent my login code to your number, can you forward it to me? It's urgent",1,en,account_takeover,synthetic_claude
+"Дўстим, сенга янглишиб код келди, шуни менга юбориб юбор илтимос",1,uz,account_takeover,synthetic_claude
+WhatsApp: hisobingizni boshqa qurilmaga ko'chirish so'raldi. Bekor qilish uchun SMS kodni javob qilib yuboring,1,uz,account_takeover,synthetic_claude
+Payme xavfsizlik bo'limi: kartangizdan 2 400 000 so'm yechib olishga urinish bo'ldi. Bekor qilish uchun hozir kelgan kodni ayting,1,uz,bank_impersonation,synthetic_claude
+"Hurmatli mijoz, Humo kartangiz muddati tugayapti. Yangilash uchun karta raqami, amal qilish muddati va SMS kodni yuboring",1,uz,bank_impersonation,synthetic_claude
+"Ҳурматли мижоз, картангиз эскирган. Янгилаш учун карта рақами ва СМС кодни шу рақамга юборинг",1,uz,bank_impersonation,synthetic_claude
+"Здравствуйте, вас беспокоит служба безопасности банка. По вашей карте зафиксирована подозрительная операция. Для отмены продиктуйте код из СМС",1,ru,bank_impersonation,synthetic_claude
+Ваша карта Uzcard будет заблокирована через 2 часа. Для сохранения доступа перейдите по ссылке и введите данные карты: uzcard-save.online,1,ru,bank_impersonation,synthetic_claude
+Kapitalbank: hisobingiz shubhali faoliyat sababli muzlatildi. Ochish uchun ilovani yangilang: kapital-update.apk,1,uz,bank_impersonation,synthetic_claude
+Click: Siz uchun 500 000 so'm keshbek hisoblandi. Olish uchun kartangizni tasdiqlang: click-cashback.xyz,1,uz,bank_impersonation,synthetic_claude
+"Payme: на ваш счёт зачислен кэшбэк 350 000 сум. Чтобы получить, подтвердите карту по ссылке paymе-bonus.site",1,ru,bank_impersonation,synthetic_claude
+Your bank card has been temporarily suspended due to unusual activity. Confirm your card details here to restore access: secure-card-check.top,1,en,bank_impersonation,synthetic_claude
+Markaziy bank xodimiman. Sizning nomingizga firibgarlar kredit ochishga urinishyapti. Pulingizni saqlab qolish uchun xavfsiz hisobga o'tkazishimiz kerak,1,uz,bank_impersonation,synthetic_claude
+"Я сотрудник Центрального банка. На ваше имя пытаются оформить кредит. Чтобы защитить деньги, переведите их на резервный счёт, который я продиктую",1,ru,bank_impersonation,synthetic_claude
+"Bank xodimi: kartangizni himoyalash uchun ekranni namoyish qiling, men sizga qadam-baqadam ko'rsataman. Avval AnyDesk ilovasini o'rnating",1,uz,bank_impersonation,synthetic_claude
+"Чтобы мы могли отменить списание, установите приложение для удалённой поддержки и сообщите мне код доступа",1,ru,bank_impersonation,synthetic_claude
+Hurmatli mijoz! Uzum Bank kartangizga 3 000 000 so'mlik kredit limiti ochildi. Faollashtirish uchun kartangiz ma'lumotlarini kiriting: uzum-limit.top,1,uz,bank_impersonation,synthetic_claude
+Ucell: SIM-kartangiz eskirgan va 24 soatda o'chiriladi. Yangilash uchun kelgan kodni operatorga ayting,1,uz,telecom,synthetic_claude
+"Beeline: ваш номер будет отключён из-за окончания договора. Для продления назовите код, который придёт в СМС",1,ru,telecom,synthetic_claude
+"Mobil operator: raqamingizni qayta ro'yxatdan o'tkazish kerak. Pasport seriyasi va SMS kodni yuboring, aks holda raqam bloklanadi",1,uz,telecom,synthetic_claude
+Tabriklaymiz! Siz Humo lotereyasida 10 000 000 so'm yutdingiz. Pulni olish uchun 150 000 so'm xizmat haqi to'lang,1,uz,prize,synthetic_claude
+Поздравляем! Ваш номер выиграл автомобиль Chevrolet Tracker в розыгрыше. Для оформления оплатите пошлину 300 000 сум,1,ru,prize,synthetic_claude
+Uzum Market 3 yilligi! Har 100 nafar ishtirokchidan biri iPhone yutadi. Ishtirok etish: uzum-yubiley.fun,1,uz,prize,synthetic_claude
+Табриклаймиз! Сиз телефон ютиб олдингиз. Совғани олиш учун етказиб бериш ҳақи 99 000 сўм тўланг,1,uz,prize,synthetic_claude
+Congratulations! You were selected for a $500 Amazon gift card. Claim it within 30 minutes: gift-claim-now.xyz,1,en,prize,synthetic_claude
+Instagram giveaway g'olibisiz! Sovg'ani olish uchun profilga yozing va yetkazib berish uchun 50 000 so'm oldindan tashlang,1,uz,prize,synthetic_claude
+"Вы стали победителем розыгрыша от блогера! Чтобы забрать приз, переведите 70 000 сум за доставку на карту <CARD>",1,ru,prize,synthetic_claude
+Navro'z aksiyasi: Artel har bir xaridorga konditsioner sovg'a qilmoqda! Anketani to'ldiring: artel-sovga.online,1,uz,prize,synthetic_claude
+El-yurt umidi jamg'armasi nomidan: siz grantga tavsiya etildingiz. Hujjatlarni rasmiylashtirish uchun 350 000 so'm to'lov qiling,1,uz,fake_grant,synthetic_claude
+Xorijda bepul o'qish! 100% grant kafolati bilan. Faqat ro'yxatdan o'tish badali 1 000 000 so'm. Joylar soni cheklangan,1,uz,fake_grant,synthetic_claude
+"Гарантируем поступление в Корею на грант. Оплата консультации 800$ заранее, остальное после визы",1,ru,fake_grant,synthetic_claude
+"DTM test javoblari sotiladi! 100% to'g'ri javoblar, imtihondan bir kun oldin. Narxi 500 000 so'm, oldindan to'lov",1,uz,exam_fraud,synthetic_claude
+"Ответы на вступительные тесты DTM! Гарантия 100%, предоплата 50%. Пишите в личку",1,ru,exam_fraud,synthetic_claude
+"Universitetga kontraktsiz o'qishga kiritib qo'yaman, rektoratda tanishlarim bor. 2000$ oldindan beriladi",1,uz,exam_fraud,synthetic_claude
+"Hurmatli abituriyent, siz talabalikka qabul qilindingiz! Shartnomani rasmiylashtirish uchun 300 000 so'mni shu kartaga o'tkazing",1,uz,fake_grant,synthetic_claude
+Kredit tarixingiz muhim emas! 50 000 000 so'mgacha kredit 1 kunda. Faqat sug'urta to'lovi 500 000 so'm oldindan,1,uz,loan_scam,synthetic_claude
+Одобрен кредит на 30 000 000 сум без справок! Для получения оплатите страховку 400 000 сум на карту менеджера,1,ru,loan_scam,synthetic_claude
+Кредитингиз тасдиқланди! Пулни олиш учун аввал 200 000 сўм суғурта тўловини амалга оширинг,1,uz,loan_scam,synthetic_claude
+"Your loan of $5,000 is approved! To release the funds, pay a one-time processing fee of $150 via gift card",1,en,loan_scam,synthetic_claude
+"Mikroqarz 5 daqiqada, pasportsiz! Faqat kartangiz raqami va SMS kodni yuboring, pul darhol tushadi",1,uz,loan_scam,synthetic_claude
+Мерос пулингиз бор: чет элда қариндошингиз сизга 50 000$ қолдирган. Ҳужжатлар учун 300$ тўланг,1,uz,advance_fee,synthetic_claude
+Siz nomingizga xorijdan 2000$ pul o'tkazmasi keldi. Uni qabul qilish uchun komissiya 100 000 so'm to'lashingiz kerak,1,uz,advance_fee,synthetic_claude
+На ваше имя поступил международный перевод 1500$. Для зачисления оплатите комиссию 120 000 сум,1,ru,advance_fee,synthetic_claude
+"Koreyaga ishga yuboramiz! Oyiga 2500$ maosh, viza kafolatlangan. Hujjatlar uchun 1500$ oldindan to'lanadi",1,uz,job_scam,synthetic_claude
+"Работа в Польше на заводе, зарплата 1800€. Виза и билет за наш счёт, только оплатите оформление 600$",1,ru,job_scam,synthetic_claude
+Uyda o'tirib kuniga 500 000 so'm ishlang! Faqat telefon kerak. Boshlash uchun 99 000 so'm to'lab kursga yoziling,1,uz,easy_money,synthetic_claude
+Подработка: ставь лайки на товары и получай до 300 000 сум в день. Для старта внеси депозит 200 000 сум,1,ru,easy_money,synthetic_claude
+Vazifa: mahsulotlarga baho qo'ying va har biri uchun pul oling. Keyingi bosqichga o'tish uchun hisobingizni 300 000 so'mga to'ldiring,1,uz,easy_money,synthetic_claude
+Remote job: earn $200 per day liking videos. Pay a $30 registration fee to start today,1,en,easy_money,synthetic_claude
+"Kartangizni ijaraga bering, har oy 1 000 000 so'm olasiz. Faqat karta va SIM kartani bizga berasiz",1,uz,money_mule,synthetic_claude
+"Нужны карты для приёма платежей, платим 500 000 сум за каждую карту в неделю. Ничего делать не нужно",1,ru,money_mule,synthetic_claude
+Uzum aksiyalariga sarmoya kiriting! Har hafta 25% foyda kafolatlanadi. Minimal sarmoya 1 000 000 so'm,1,uz,investment,synthetic_claude
+Крипто-бот приносит 40% в месяц без риска! Вложите от 100$ и получайте прибыль каждый день,1,ru,investment,synthetic_claude
+Инвестиция қилинг ва 1 ойда пулингизни икки баробар қилинг! Кафолат 100%. Жойлар чекланган,1,uz,investment,synthetic_claude
+Double your USDT in 24 hours! Send any amount to our wallet and get 2x back. Limited offer,1,en,investment,synthetic_claude
+"P2P orqali tez pul: siz pul qabul qilasiz va boshqa kartaga o'tkazasiz, har bir o'tkazmadan 5% sizniki",1,uz,money_mule,synthetic_claude
+"Assalomu alaykum, OLX'dagi mahsulotingizni sotib olaman. Pulni OLX Delivery orqali tashladim, olish uchun bu havolaga kirib karta ma'lumotlarini kiriting: olx-dostavka.site",1,uz,marketplace,synthetic_claude
+"Здравствуйте, я оплатил ваш товар через безопасную сделку OLX. Чтобы получить деньги, введите данные карты по ссылке olx-pay-uz.top",1,ru,marketplace,synthetic_claude
+"Mahsulotingiz uchun to'lov qildim, lekin bank tasdiqlash kodi sizning raqamingizga keldi, shuni menga yuborib bering",1,uz,marketplace,synthetic_claude
+"Telefonni 30% chegirma bilan sotaman, faqat bugun. To'liq oldindan to'lov, keyin pochta orqali jo'nataman",1,uz,marketplace,synthetic_claude
+"Продаю iPhone 16 Pro за полцены, срочно. Только полная предоплата на карту, доставка из другого города",1,ru,marketplace,synthetic_claude
+"Kvartira ijaraga, Chilonzorda, juda arzon. Ko'rishdan oldin 1 oylik to'lovni oldindan tashlang, aks holda boshqaga beraman",1,uz,rental,synthetic_claude
+"Сдаю квартиру посуточно в центре Ташкента. Для брони переведите 100% предоплату, ключи передам курьером",1,ru,rental,synthetic_claude
+Umra ziyoratiga yo'llanma 50% chegirma bilan! Joy band qilish uchun bugun 5 000 000 so'm oldindan to'lang,1,uz,travel_scam,synthetic_claude
+"Авиабилеты в Стамбул в 3 раза дешевле! Оплата только переводом на карту, билет пришлём после оплаты",1,ru,travel_scam,synthetic_claude
+Green Card lotereyasida g'olib bo'ldingiz! Vizani rasmiylashtirish uchun 500$ to'lov qiling,1,uz,travel_scam,synthetic_claude
+"Konsertga chiptalar tugadi, lekin menda bor. Narxi ikki baravar, oldindan kartaga tashlaysiz",1,uz,marketplace,synthetic_claude
+"Pochta: posilkangiz bojxonada ushlab qolindi. Bojxona to'lovi 87 000 so'm, to'lash uchun: uzpost-tolov.xyz",1,uz,parcel,synthetic_claude
+"Ваша посылка задержана на таможне. Оплатите пошлину 65 000 сум в течение 24 часов, иначе она будет возвращена: pochta-uz.online",1,ru,parcel,synthetic_claude
+"Kuryer: buyurtmangizni yetkazib bera olmadim, manzilni tasdiqlash uchun ilovani yuklab oling: delivery-track.apk",1,uz,parcel,synthetic_claude
+Your package could not be delivered. Update your address and pay a $1.99 redelivery fee: parcel-redeliver.top,1,en,parcel,synthetic_claude
+"Ona, bu men, telefonim buzildi, bu yangi raqamim. Juda shoshilinch 2 000 000 so'm kerak, shu kartaga tashlab yuboring, keyin tushuntiraman",1,uz,relative,synthetic_claude
+"Мам, это я, пишу с чужого номера. Попал в неприятность, срочно нужно 3 млн, переведи на эту карту, только папе не говори",1,ru,relative,synthetic_claude
+"Дада, бу менман, телефоним ўғирланди. Тезда пул керак, шу картага ташлаб юборинг, ҳеч кимга айтманг",1,uz,relative,synthetic_claude
+"Akang avariyaga tushdi, militsiya xonasida o'tiribmiz. Ishni yopish uchun hozir 5 000 000 so'm kerak, hech kimga aytmang",1,uz,relative,synthetic_claude
+"Ваш сын попал в ДТП, нужна срочно сумма для решения вопроса. Передайте деньги нашему курьеру",1,ru,relative,synthetic_claude
+"Do'stim, akkauntim buzildi, bu yangi profilim. Qarzga 800 000 so'm berib tur, ertaga qaytaraman. Kartaga tashla",1,uz,relative,synthetic_claude
+YHXBB: avtomobilingizga 1 250 000 so'm jarima yozildi. 50% chegirma bilan to'lash uchun: yhxbb-jarima.online,1,uz,gov,synthetic_claude
+ГАИ: на ваш автомобиль выписан штраф. Оплатите в течение 24 часов со скидкой 50% по ссылке gai-shtraf.site,1,ru,gov,synthetic_claude
+Hududgazta'minot: gaz uchun 540 000 so'm qarzingiz bor. Bugun to'lamasangiz gaz o'chiriladi. To'lov: gaz-qarz.top,1,uz,gov,synthetic_claude
+Elektr energiyasi uchun qarzdorlik: ertaga soat 9 da tok uziladi. Darhol ushbu kartaga 320 000 so'm o'tkazing,1,uz,gov,synthetic_claude
+Soliq qo'mitasi: sizga 1 800 000 so'm soliq qaytarilishi kerak. Olish uchun karta raqami va SMS kodni yuboring,1,uz,gov,synthetic_claude
+Налоговая: вам положен возврат налога 1 200 000 сум. Для получения заполните анкету и укажите данные карты: soliq-vozvrat.xyz,1,ru,gov,synthetic_claude
+Ijtimoiy yordam: siz bir martalik 2 000 000 so'm nafaqa olish huquqiga egasiz. Ariza berish uchun: yordam-uz.site,1,uz,gov,synthetic_claude
+Ҳарбий комиссариат: сизга чақирув қоғози берилган. Келмаслик учун жаримани шу ерда тўланг: harbiy-jarima.click,1,uz,gov,synthetic_claude
+Prokuratura xodimi: sizning kartangiz orqali noqonuniy o'tkazma bo'lgan. Jinoiy ishni yopish uchun xavfsiz hisobga pul o'tkazing,1,uz,threat,synthetic_claude
+Следственный комитет: вы проходите свидетелем по делу о мошенничестве. Для защиты средств переведите их на безопасный счёт,1,ru,threat,synthetic_claude
+"Sizning intim suratlaringiz bizda. 24 soat ichida 500$ tashlamasangiz, barcha do'stlaringizga yuboramiz",1,uz,threat,synthetic_claude
+We hacked your camera and recorded you. Pay $300 in Bitcoin within 48 hours or the video goes to all your contacts,1,en,threat,synthetic_claude
+Bu sening rasmingmi? Juda kulgili chiqibdi 😂 rasm.jpg.apk,1,uz,apk,synthetic_claude
+"Смотри, тебя сфоткали на свадьбе: foto_svadba.apk",1,ru,apk,synthetic_claude
+To'y taklifnomasi: ochish uchun yuklab oling — taklifnoma.apk,1,uz,apk,synthetic_claude
+Тўйга таклифнома: юклаб олинг ва очинг — taklif.apk,1,uz,apk,synthetic_claude
+Davlat xizmatlari yangi ilovasi: barcha jarimalar va qarzlarni tekshiring. Yuklab oling: mygov-new.apk,1,uz,apk,synthetic_claude
+"Ваша накладная во вложении, установите приложение для просмотра: nakladnaya_2026.apk",1,ru,apk,synthetic_claude
+"Siz uchun hujjat yuborildi, ko'rish uchun dastur o'rnating: hujjat_korish.apk",1,uz,apk,synthetic_claude
+Check this invoice and install the viewer app: invoice_viewer.apk,1,en,apk,synthetic_claude
+"Kasal bolaga yordam bering! Operatsiyaga 30 000$ yetmayapti, har qanday summa muhim. Karta: <CARD>",1,uz,charity,synthetic_claude
+"Срочно! Девочке нужна операция, сбор на карту матери. Любая сумма поможет, перешлите всем",1,ru,charity,synthetic_claude
+"I'm a US army doctor in Syria. I want to send you a box with my savings, just pay the shipping company fee",1,en,romance,synthetic_claude
+"Salom, men chet eldagi shifokorman, sizga yoqib qoldim. Sovg'a jo'natdim, bojxona to'lovini qilib qo'ysangiz yetib keladi",1,uz,romance,synthetic_claude
+Telegram kanalimizga qo'shiling va har kuni bepul signallar bilan 100$ ishlang! Faqat VIP guruhga kirish 50$,1,uz,investment,synthetic_claude
+Квартира по наследству оформлена на вас. Для вступления в права оплатите услуги нотариуса 2 000 000 сум,1,ru,advance_fee,synthetic_claude
+"Siz tanlovda g'olib bo'ldingiz, sovg'ani olish uchun shaxsingizni tasdiqlang: pasport rasmi va karta raqamini yuboring",1,uz,prize,synthetic_claude
+"Assalomu alaykum, men Click xodimiman. Sizning profilingizda xatolik bor, to'g'rilashim uchun parolingizni ayting",1,uz,bank_impersonation,synthetic_claude
+"Hurmatli foydalanuvchi, Payme akkauntingizdan noma'lum qurilmaga kirildi. Bu siz bo'lmasangiz, kodni javob tariqasida yuboring",1,uz,bank_impersonation,synthetic_claude
+Uzum Nasiya: muddati o'tgan qarzingiz bor! Bugun to'lamasangiz ish sudga beriladi. To'lov havolasi: nasiya-tolov.top,1,uz,threat,synthetic_claude
+"Коллекторы: у вас просрочка по займу. Если не оплатите сегодня до 18:00 на карту <CARD>, приедем домой и на работу",1,ru,threat,synthetic_claude
+Вы выиграли путёвку на двоих в Дубай! Оплатите только налог 10% от стоимости путёвки,1,ru,prize,synthetic_claude
+"Pensiya jamg'armasi: pensiyangiz qayta hisoblandi, 4 000 000 so'm qo'shimcha to'lov bor. Olish uchun karta ma'lumotlarini kiriting: pensiya-plus.site",1,uz,gov,synthetic_claude
+"Ҳурматли фуқаро, сизнинг номингизга 3 та жарима бор. Тўламасангиз чегарадан чиқа олмайсиз. Тўлов: jarima-uz.top",1,uz,gov,synthetic_claude
+Your Apple ID has been locked. Verify your identity now to avoid permanent deletion: appleid-verify-secure.xyz,1,en,account_takeover,synthetic_claude
+Google: someone has your password. Reset it immediately here: google-security-reset.top,1,en,account_takeover,synthetic_claude
+Instagram: profilingiz mualliflik huquqi buzilgani uchun o'chiriladi. E'tiroz bildirish: insta-copyright.help,1,uz,account_takeover,synthetic_claude
+Ваш аккаунт Instagram будет удалён за нарушение авторских прав. Подайте апелляцию по ссылке: ig-appeal.site,1,ru,account_takeover,synthetic_claude
+"Assalomu alaykum, men sizning sinfdoshingizman, raqamim o'zgardi. Kichik iltimosim bor: kartangizga pul tashlayman, naqd qilib bera olasizmi?",1,uz,money_mule,synthetic_claude
+"Привет, это твой одноклассник, сменил номер. Можно я скину деньги тебе на карту, а ты переведёшь их другу? Свою карту заблокировали",1,ru,money_mule,synthetic_claude
+"Ish taklifi: kuryer, kunlik to'lov 400 000 so'm. Ishga olish uchun forma va sug'urta uchun 150 000 so'm to'laysiz",1,uz,job_scam,synthetic_claude
+"Онлайн-курс трейдинга с гарантией заработка 1000$ в месяц. Стоимость 3 000 000 сум, возврата нет",1,ru,investment,synthetic_claude
+"Hajga navbatsiz yuboramiz! Hujjatlarni tez rasmiylashtiramiz, oldindan 3000$ to'lov",1,uz,travel_scam,synthetic_claude
+"Bepul internet paketi! Ucell 50 GB sovg'a qilyapti, olish uchun havolaga kiring va raqamingizni tasdiqlang: ucell-gift.click",1,uz,telecom,synthetic_claude
+"Сизнинг Telegram аккаунтингизга бошқа қурилмадан кирилди. Агар бу сиз бўлмасангиз, кодни ушбу ботга юборинг",1,uz,account_takeover,synthetic_claude
+"Aka, kechirasiz, xato raqamga 500 000 so'm tashlab yubordim. Iltimos qaytarib yuboring, shu kartaga",1,uz,fake_transfer,synthetic_claude
+"Извините, я по ошибке перевёл вам 400 000 сум. Верните, пожалуйста, на эту карту, очень нужно",1,ru,fake_transfer,synthetic_claude
+"Kartangizga 1 200 000 so'm tushdi (Click). Iltimos, xato tushgan pulni ushbu raqamga qaytaring",1,uz,fake_transfer,synthetic_claude
+Click: Kartangizdan 45 000 so'm yechildi. Mahsulot: Korzinka. Balans: 1 230 000 so'm,0,uz,bank_notification,synthetic_claude
+Payme: Uzmobile uchun 30 000 so'm to'lov muvaffaqiyatli amalga oshirildi,0,uz,bank_notification,synthetic_claude
+HUMO: kartaga 2 500 000 so'm kelib tushdi. Jo'natuvchi: INHA University. Balans: 2 740 000,0,uz,bank_notification,synthetic_claude
+"Uzcard: Списание 120 000 сум, Makro. Баланс: 860 000 сум",0,ru,bank_notification,synthetic_claude
+"Kod: 482913. Uni hech kimga, hatto bank xodimiga ham aytmang. Click",0,uz,otp_sms,synthetic_claude
+Код подтверждения: 551029. Никому не сообщайте этот код. Payme,0,ru,otp_sms,synthetic_claude
+Your verification code is 330187. Do not share this code with anyone.,0,en,otp_sms,synthetic_claude
+Uzum Bank: kredit bo'yicha navbatdagi to'lov 15-oktabr. Summa: 610 000 so'm. Ilovada to'lashingiz mumkin,0,uz,bank_notification,synthetic_claude
+Kapitalbank: kartangiz muddati noyabrda tugaydi. Yangi kartani istalgan filialda bepul olishingiz mumkin,0,uz,bank_notification,synthetic_claude
+Ваша карта будет перевыпущена автоматически. Новую карту можно получить в отделении банка с паспортом,0,ru,bank_notification,synthetic_claude
+Hurmatli mijoz! Ilovamizning yangi versiyasi chiqdi. App Store yoki Google Play orqali yangilang,0,uz,bank_notification,synthetic_claude
+Uzum Market: buyurtmangiz #48213 topshirish punktiga yetkazildi. 5 kun ichida olib keting,0,uz,service,synthetic_claude
+Ваш заказ передан в службу доставки. Отслеживание: uzum.uz/orders,0,ru,service,synthetic_claude
+Your order has shipped and will arrive on Thursday. Track it in the app.,0,en,service,synthetic_claude
+Hududgazta'minot: oktyabr oyi uchun hisob 64 000 so'm. To'lovni Click yoki Payme orqali amalga oshirishingiz mumkin,0,uz,service,synthetic_claude
+Uzmobile: balansingizda 2 000 so'm qoldi. Hisobni to'ldirishni unutmang,0,uz,service,synthetic_claude
+Beeline: вам начислено 5 ГБ бонусного интернета по тарифу. Проверить остаток: *102#,0,ru,service,synthetic_claude
+"Shifoxonaga yozuvingiz tasdiqlandi: 12-oktabr, soat 10:30, 214-xona",0,uz,service,synthetic_claude
+my.gov.uz: arizangiz ko'rib chiqildi. Natijani shaxsiy kabinetingizda ko'rishingiz mumkin,0,uz,official_post,synthetic_claude
+Davlat xizmatlari markazi: pasportingiz tayyor. Uni hujjat bilan kelib olib ketishingiz mumkin,0,uz,official_post,synthetic_claude
+El-yurt umidi jamg'armasi: suhbat jadvali rasmiy saytda e'lon qilindi. Batafsil: el-yurt.uz,0,uz,official_post,synthetic_claude
+Ташкент шаҳар ҳокимлиги: 15 октябрь куни шаҳар марказида субботник ўтказилади,0,uz,official_post,synthetic_claude
+Министерство цифровых технологий объявило конкурс стартапов. Заявки принимаются на официальном сайте до 1 декабря,0,ru,official_post,synthetic_claude
+INHA University: kuzgi semestr imtihonlari jadvali e-classda joylandi,0,uz,official_post,synthetic_claude
+Markaziy bank ogohlantiradi: bank xodimlari hech qachon SMS kod yoki karta ma'lumotlarini so'ramaydi,0,uz,warning,synthetic_claude
+"Ichki ishlar vazirligi: ""ovoz bering"" degan havolalarga kirmang, ular Telegram akkauntingizni o'g'irlaydi",0,uz,warning,synthetic_claude
+Внимание: мошенники рассылают ссылки «проголосуй за племянницу». Не вводите номер и код из СМС,0,ru,warning,synthetic_claude
+Eslatma: OLX hech qachon to'lovni qabul qilish uchun karta ma'lumotlarini kiritishni so'ramaydi,0,uz,warning,synthetic_claude
+"Don't install .apk files sent in chats, even from friends. Real banks never send apps this way.",0,en,warning,synthetic_claude
+"Kun.uz: Toshkentda firibgarlar guruhi ushlandi, ular o'zini bank xodimi deb tanishtirgan",0,uz,news,synthetic_claude
+"Газета.uz: число кибермошенничеств с банковскими картами выросло, эксперты советуют подключить двухфакторную защиту",0,ru,news,synthetic_claude
+"Kecha menga ham ""kartangiz bloklandi"" deb qo'ng'iroq qilishdi, kodni aytmadim, darhol trubkani qo'ydim",0,uz,report,synthetic_claude
+"Onamga bugun ""o'g'lingiz avariyaga tushdi"" deb yozishgan ekan, xayriyat menga qo'ng'iroq qilib so'radi",0,uz,report,synthetic_claude
+"Мне сегодня звонили якобы из банка, просили код. Я не сказал, будьте внимательны",0,ru,report,synthetic_claude
+"Ona, darsdan keyin kutubxonaga boraman, kechroq qaytaman",0,uz,personal,synthetic_claude
+"Aka, ertaga to'yga soat nechada boramiz?",0,uz,personal,synthetic_claude
+"Do'stim, kecha qarzga olgan 100 000 so'mni hozir kartangga tashladim, tekshirib ko'r",0,uz,personal,synthetic_claude
+"Мама, я перевёл тебе деньги за коммуналку, посмотри пришли ли",0,ru,personal,synthetic_claude
+"Dadajon, kontrakt to'lovini qildim, chekni yuboraman",0,uz,personal,synthetic_claude
+"Brat, futbolga kim boradi? 20:00 da maydonda",0,uz,personal,synthetic_claude
+"Салом, эртага дарсга келасанми? Ўқитувчи тест олармиш",0,uz,personal,synthetic_claude
+"Нон олиб кел, уйда тугабди",0,uz,personal,synthetic_claude
+Can you send me the lecture slides from today?,0,en,personal,synthetic_claude
+"Привет! Как дела? Давно не виделись, давай встретимся в выходные",0,ru,personal,synthetic_claude
+"Tabriklayman, imtihondan yaxshi o'tibsan! Kechqurun choyxonaga boramizmi?",0,uz,personal,synthetic_claude
+"Ustoz, uy vazifasini qachongacha topshirishimiz kerak?",0,uz,personal,synthetic_claude
+"Guruhdoshlar, ertaga INHA kutubxonasida soat 3 da loyiha bo'yicha yig'ilamiz",0,uz,personal,synthetic_claude
+"Opa, bozordan kelayotganda pomidor va kartoshka olib keling",0,uz,personal,synthetic_claude
+Happy birthday! Wishing you a great year ahead 🎉,0,en,personal,synthetic_claude
+Поздравляю с днём рождения! Здоровья и счастья!,0,ru,personal,synthetic_claude
+"Тўйимизга таклиф қиламиз! 20 октябрь, соат 18:00, ""Navro'z"" тўйхонаси",0,uz,personal,synthetic_claude
+"To'yimizga taklif qilamiz! 25-oktabr, soat 17:00, Chilonzor tumani, ""Oqsaroy"" to'yxonasi",0,uz,personal,synthetic_claude
+"Akajon, telefoningizni zaryad qiling, qo'ng'iroq qilsam o'chiq",0,uz,personal,synthetic_claude
+"Я опоздаю минут на 15, пробка на Амира Темура",0,ru,personal,synthetic_claude
+"Hamkasblar, ertangi yig'ilish soat 10:00 ga ko'chirildi",0,uz,work,synthetic_claude
+"Коллеги, отчёт за сентябрь нужно сдать до пятницы",0,ru,work,synthetic_claude
+Please review the attached presentation before Monday's meeting.,0,en,work,synthetic_claude
+"Do'konimizda kuzgi chegirmalar: barcha kurtkalar 20% arzon. Manzil: Chorsu bozori, 3-qator",0,uz,business_ad,synthetic_claude
+"Новое меню в нашей кофейне! Приходите на дегустацию в субботу, вход свободный",0,ru,business_ad,synthetic_claude
+"Ingliz tili kurslariga qabul davom etmoqda. Birinchi dars bepul. Manzil: Yunusobod, 4-kvartal",0,uz,business_ad,synthetic_claude
+"Assalomu alaykum, OLX'dagi velosipedingiz hali sotuvdami? Kechqurun ko'rgani kelsam bo'ladimi?",0,uz,marketplace_legit,synthetic_claude
+"Здравствуйте, диван ещё актуален? Могу приехать посмотреть завтра, оплачу наличными при встрече",0,ru,marketplace_legit,synthetic_claude
+"Telefonni ko'rib chiqdim, menga yoqdi. Uchrashganda naqd pul beraman, qayerda ko'rishamiz?",0,uz,marketplace_legit,synthetic_claude
+"Kvartira ijaraga beriladi, Yunusobod. Avval ko'rib chiqing, keyin shartnoma tuzamiz. Rieltorsiz",0,uz,marketplace_legit,synthetic_claude
+"Hi, is the laptop still available? I can meet tomorrow and pay in cash",0,en,marketplace_legit,synthetic_claude
+"Avtomobil sotiladi, Cobalt 2022. Ko'rish va texnik ko'rikdan o'tkazish mumkin. Faqat shaxsan uchrashuvda",0,uz,marketplace_legit,synthetic_claude
+"Kurs to'lovini Click orqali ilovada qilsangiz bo'ladi, chekni administratorga ko'rsatasiz",0,uz,service,synthetic_claude
+Hurmatli talabalar! Stipendiya kartalarga 5-oktabr kuni o'tkaziladi,0,uz,official_post,synthetic_claude
+"Zakaz qilgan kitobingiz keldi, ertaga do'konga kelib olib keting",0,uz,service,synthetic_claude
+Ваш врач записал вас на анализы на 9:00 завтра. Не ешьте за 8 часов до сдачи,0,ru,service,synthetic_claude
+"Bugun soat 19:00 da mahallamizda yig'ilish bo'ladi, hamma kelsin",0,uz,personal,synthetic_claude
+Сегодня в 18:00 родительское собрание в 5 «Б» классе,0,ru,personal,synthetic_claude
+Toshkent metrosi: 12-oktabr kuni Chilonzor yo'nalishida ta'mirlash ishlari olib boriladi,0,uz,news,synthetic_claude
+"Yangi iPhone Uzbekistonda sotuvga chiqdi, narxi rasmiy dilerlarda 18 million so'mdan",0,uz,news,synthetic_claude
+Курс доллара на сегодня: 12 650 сум. ЦБ Узбекистана,0,ru,news,synthetic_claude
+O'zbekiston terma jamoasi bugun soat 20:00 da o'yin o'tkazadi,0,uz,news,synthetic_claude
+Uzum Market'da bugun 11.11 aksiyasi: chegirmalarni ilovada ko'ring,0,uz,business_ad,synthetic_claude
+Click ilovasida yangi funksiya: endi kommunal to'lovlarni avtomatik to'lash mumkin,0,uz,bank_notification,synthetic_claude
+Payme: oylik obuna to'lovi 25 000 so'm muvaffaqiyatli yechildi (Netflix),0,uz,bank_notification,synthetic_claude
+Ваш платёж на сумму 75 000 сум за интернет успешно проведён. Спасибо!,0,ru,bank_notification,synthetic_claude
+"Do'stim, kecha restoranda men to'lagandim, ulushing 85 000 so'm, qachon qulay bo'lsa tashlab qo'y",0,uz,personal,synthetic_claude
+"Сколько я тебе должен за билеты? Скинь номер карты, переведу",0,ru,personal,synthetic_claude
+"Ona, dorixonadan dori oldim, pulini o'zim to'ladim, xavotir olmang",0,uz,personal,synthetic_claude
+"Talabalar uchun hackathon! Ro'yxatdan o'tish bepul, g'oliblarga sovrinlar. Batafsil: it-park.uz",0,uz,official_post,synthetic_claude
+Grant natijalari 20-noyabrda rasmiy saytda e'lon qilinadi. Hech qanday to'lov talab qilinmaydi,0,uz,official_post,synthetic_claude
+"Vaqtincha ishga odam kerak: kafe, ofitsiant, kunlik ish haqi. Murojaat shaxsan, Mirzo Ulug'bek tumani",0,uz,work,synthetic_claude
+"Вакансия: бухгалтер в торговую компанию. Отправьте резюме на hh.uz, собеседование в офисе",0,ru,work,synthetic_claude
+"Yangi ish joyimda birinchi oylik keldi, bugun men mehmon qilaman!",0,uz,personal,synthetic_claude
+Bayramingiz bilan! Sog'lik va baxt tilayman,0,uz,personal,synthetic_claude
+Uyga kelayotganda dorixonadan paratsetamol olib keling,0,uz,personal,synthetic_claude
+"Telegram: Kod 74521. Uni hech kimga bermang, hatto Telegram xodimlariga ham",0,uz,otp_sms,synthetic_claude
+"Login code: 61842. Do not give this code to anyone, even if they say they are from Telegram!",0,en,otp_sms,synthetic_claude

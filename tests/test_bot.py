@@ -415,3 +415,58 @@ def test_menu_button_is_set_to_mini_app(monkeypatch):
     asyncio.run(botmod.setup_profile(Bot("123456:" + "A" * 35, session=s)))
     menu = [c for c in s.calls if isinstance(c, SetChatMenuButton)]
     assert len(menu) == 1 and menu[0].menu_button.web_app.url == "https://scamguard-production-727d.up.railway.app"
+
+
+def test_apk_contents_are_explained(env, monkeypatch):
+    """An .apk is downloaded into memory and its permissions are explained (never installed)."""
+    from tests.test_apk import SMS_STEALER, build_apk
+
+    botmod, session, feed = env
+
+    async def fake_download(message):
+        return build_apk(SMS_STEALER)
+
+    monkeypatch.setattr(botmod, "download_file", fake_download)
+    doc = Document(file_id="c", file_unique_id="c", file_name="taklifnoma.apk", file_size=5000)
+    reply = feed({"message": msg(document=doc)})
+    assert "🔴" in reply and "SMS" in reply and "uz.invitation.photo" in reply
+
+
+def test_apk_check_failure_falls_back_to_name_check(env, monkeypatch):
+    botmod, session, feed = env
+
+    async def broken_download(message):
+        raise ConnectionError("network down")
+
+    monkeypatch.setattr(botmod, "download_file", broken_download)
+    doc = Document(file_id="d", file_unique_id="d", file_name="photo.jpg.apk", file_size=5000)
+    reply = feed({"message": msg(document=doc)})
+    assert "🔴" in reply and ".jpg.apk" in reply
+
+
+def test_huge_apk_is_not_downloaded(env, monkeypatch):
+    botmod, session, feed = env
+
+    async def must_not_download(message):
+        raise AssertionError("should not download")
+
+    monkeypatch.setattr(botmod, "download_file", must_not_download)
+    doc = Document(file_id="e", file_unique_id="e", file_name="big.apk", file_size=50 * 1024 * 1024)
+    reply = feed({"message": msg(document=doc)})
+    assert "🔴" in reply and "20" in reply
+
+
+def test_brand_new_site_is_flagged_online(env, monkeypatch):
+    """A link that looks harmless offline gets flagged once RDAP says the domain is 2 days old."""
+    from tests.test_reputation import FakeWeb, rdap
+    from scamguard import reputation
+
+    botmod, session, feed = env
+    monkeypatch.setenv("SCAMGUARD_ONLINE_CHECKS", "1")
+    monkeypatch.setattr(reputation, "_cache", reputation._Cache())
+    monkeypatch.setattr(reputation, "fetch_json", FakeWeb({"rdap.org/domain/mening-dokonim.uz": rdap(2)}))
+    offline = botmod.evaluate(msg("Do'konimiz saytini ko'ring: https://mening-dokonim.uz"))
+    assert offline.level.value == "safe"
+    botmod.storage.set_lang(42, "en")
+    reply = feed({"message": msg("Do'konimiz saytini ko'ring: https://mening-dokonim.uz")})
+    assert "🟡" in reply and "2 day" in reply

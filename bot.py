@@ -7,6 +7,12 @@ statistics, language, share.
 Screenshots: text in photos is read with OCR (Uzbek Latin/Cyrillic, Russian,
 English) and checked like any message. Images are never saved.
 
+Apps: an .apk is loaded into memory and its manifest is read to explain what the app could do
+(read SMS codes, control the screen, draw fake login windows...). It is never installed or run.
+
+Online checks: links get a domain-age lookup and, when API keys are set, Google Safe Browsing
+and VirusTotal (scamguard/reputation.py). They only add risk and are skipped when slow.
+
 Community blocklist: the 🚩 button (or /report in groups) records scam sites,
 phone numbers and Telegram accounts. Once REPORT_THRESHOLD different people
 report the same one, everyone who meets it gets a warning.
@@ -45,9 +51,9 @@ from aiogram.types import (
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
-from scamguard import blocklist, ocr, radar
+from scamguard import apk, blocklist, ocr, radar, reputation
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
-from scamguard.files import check_file
+from scamguard.files import APK_REASON, check_file
 from scamguard.reasons import Reason
 from scamguard.i18n import LANG_NAMES, LANGS, SCAM_TYPES, all_variants, guess_lang, t
 from scamguard.storage import Storage
@@ -97,6 +103,8 @@ class Result:
     trust: list = field(default_factory=list)
     signals: list = field(default_factory=list)   # for the public radar (scam category)
     domains: list = field(default_factory=list)   # fake-site domains found (for the radar)
+    links: list = field(default_factory=list)     # LinkReports, for the online checks (memory only)
+    app_sha256: str = ""                          # hash of an inspected .apk, for VirusTotal
 
 
 def record(r: "Result") -> None:
@@ -240,6 +248,48 @@ async def read_image(message: Message) -> str:
         return await asyncio.to_thread(ocr.image_to_text, data)
 
 
+_apk_slots = asyncio.Semaphore(2)   # at most 2 apps inspected at once
+APK_TIMEOUT_S = 15
+
+
+@dataclass
+class AppCheck:
+    """Result of looking inside an .apk (the file itself is never kept)."""
+    reasons: list = field(default_factory=list)
+    signals: list = field(default_factory=list)
+    looked_inside: bool = False                      # True when the manifest was actually read
+    sha256: str = ""
+
+
+async def download_file(message: Message) -> bytes:
+    """Download a document into memory (never to disk)."""
+    buf = await message.bot.download(message.document)
+    return buf.read() if buf else b""
+
+
+async def inspect_app(message: Message) -> AppCheck | None:
+    """Download an .apk into memory and read what it is allowed to do. Never installs or runs it.
+    Any failure falls back to the name-based check, so a broken download never breaks the reply."""
+    doc = message.document
+    if doc is None or not apk.is_apk_name(doc.file_name, doc.mime_type):
+        return None
+    if doc.file_size and doc.file_size > apk.MAX_APK_BYTES:
+        return AppCheck([apk.TOO_BIG])
+    try:
+        await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+        data = await download_file(message)
+        async with _apk_slots:
+            report = await asyncio.wait_for(asyncio.to_thread(apk.inspect_apk, data), APK_TIMEOUT_S)
+    except apk.NotAnApk:
+        return AppCheck([apk.UNREADABLE])
+    except Exception as e:                            # network, Telegram or timeout problems
+        log.warning("APK check failed: %s", e)
+        return None
+    finally:
+        data = b""                                    # drop the bytes as soon as possible
+    return AppCheck(apk.report_reasons(report), apk.report_signals(report), looked_inside=True, sha256=report.sha256)
+
+
 def level_for(score: float) -> Level:
     return Level.DANGEROUS if score >= DANGEROUS_AT else Level.SUSPICIOUS if score >= SUSPICIOUS_AT else Level.SAFE
 
@@ -270,15 +320,21 @@ def evaluate_text(text: str) -> Result:
     return Result(level, reasons, score, None, text, None, trust, signals, radar.scam_domains(verdict.links))
 
 
-def evaluate(message: Message, extra_text: str = "") -> Result | None:
-    """Full check of a message: text, hidden links, file, OCR text and the community blocklist."""
+def evaluate(message: Message, extra_text: str = "", app: AppCheck | None = None) -> Result | None:
+    """Full check of a message: text, hidden links, file (and what an .apk may do), OCR text
+    and the community blocklist."""
     text = "\n".join(filter(None, [full_text(message), extra_text]))
     file_level, reasons, score = None, [], 0.0
     doc = message.document
     if doc is not None:
         fv = check_file(doc.file_name, doc.mime_type)
         file_level, reasons = fv.level, list(fv.reasons)
-        text = " ".join(filter(None, [text, doc.file_name]))
+        if app is not None and app.looked_inside:
+            # We know what the app can do, so the general ".apk" warnings would only repeat it.
+            reasons = list(app.reasons) + [r for r in reasons if r is not APK_REASON]
+        else:
+            reasons = (list(app.reasons) if app else []) + reasons
+            text = " ".join(filter(None, [text, doc.file_name]))
     forward = forward_id(message)
     if not text and doc is None and forward is None:
         return None
@@ -301,10 +357,33 @@ def evaluate(message: Message, extra_text: str = "") -> Result | None:
     signals = list(verdict.signals) if verdict else []
     if file_level == Level.DANGEROUS:
         signals.insert(0, "file_program")
+    if app is not None:
+        signals = list(app.signals) + signals
     if hits:
         signals.append("community")
     domains = radar.scam_domains(verdict.links) if verdict else []
-    return Result(level, reasons, score, file_level, text, forward, trust, signals, domains)
+    return Result(level, reasons, score, file_level, text, forward, trust, signals, domains,
+                  links=list(verdict.links) if verdict else [], app_sha256=app.sha256 if app else "")
+
+
+async def add_online_checks(result: Result) -> Result:
+    """Domain age, Google Safe Browsing and VirusTotal (when keys are set). Only ever adds risk,
+    and any failure or slowness is skipped (see scamguard/reputation.py)."""
+    if not reputation.enabled() or not (result.links or result.app_sha256):
+        return result
+    found = await reputation.check_links(result.links)
+    if result.app_sha256:
+        found.merge(await reputation.check_file_hash(result.app_sha256))
+    if found.evidence <= 0:
+        return result
+    result.reasons = found.reasons + result.reasons
+    result.score = 1 - (1 - result.score) * (1 - found.evidence)
+    result.level = max(result.level, level_for(result.score), key=LEVEL_ORDER.index)
+    result.signals = list(result.signals) + found.signals
+    result.domains = list(result.domains) + [d for d in found.confirmed_domains if d not in result.domains]
+    if result.level != Level.SAFE:
+        result.trust = []
+    return result
 
 
 def render(lang: str, r: Result, file_name: str | None = None, source: str | None = None, ocr_text: str = "") -> str:
@@ -414,10 +493,11 @@ async def on_check(message: Message) -> None:
             if not ocr_text and not message.caption and forward_id(message) is None:
                 await message.reply(t("ocr_empty", lang))
                 return
-    result = evaluate(message, ocr_text)
+    result = evaluate(message, ocr_text, await inspect_app(message))
     if result is None:
         await message.reply(t("empty", lang))
         return
+    result = await add_online_checks(result)
     record(result)
     doc = message.document
     reply = render(lang, result, doc.file_name if doc else None, forward_source(message), ocr_text)
@@ -439,10 +519,11 @@ async def group_check(message: Message) -> None:
     if target is None:
         await message.reply(t("check_hint", lang))
         return
-    result = evaluate(target, await read_image(target))
+    result = evaluate(target, await read_image(target), await inspect_app(target))
     if result is None:
         await message.reply(t("empty", lang))
         return
+    result = await add_online_checks(result)
     record(result)
     doc = target.document
     await target.reply(render(lang, result, doc.file_name if doc else None), disable_web_page_preview=True)

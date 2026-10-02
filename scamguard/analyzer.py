@@ -28,7 +28,10 @@ from .rules import match_rules
 
 SUSPICIOUS_AT = 0.35
 DANGEROUS_AT = 0.65
-MODEL_MIN = 0.80          # model probability needed before it adds any risk
+# The AI model on its own can raise a 🟡 warning once it is MODEL_MIN sure, never a 🔴.
+# 0.75 was chosen on the training data with every scam *type* held out in turn
+# (about 3-4% of normal messages go above it), not on the test set. See RESULTS.md.
+MODEL_MIN = 0.75
 MODEL_MAX_EVIDENCE = 0.5  # model alone -> at most SUSPICIOUS
 MENTION_WEIGHT = 0.3      # text rules in a warning/story count this much
 
@@ -93,9 +96,11 @@ def level_for(score: float) -> Level:
 
 
 def model_evidence(p: float | None) -> float:
+    """Below MODEL_MIN the model adds nothing; from MODEL_MIN it is enough for 🟡 on its own,
+    rising to MODEL_MAX_EVIDENCE, which is still below 🔴."""
     if p is None or p < MODEL_MIN:
         return 0.0
-    return (p - MODEL_MIN) / (1 - MODEL_MIN) * MODEL_MAX_EVIDENCE
+    return SUSPICIOUS_AT + (p - MODEL_MIN) / (1 - MODEL_MIN) * (MODEL_MAX_EVIDENCE - SUSPICIOUS_AT)
 
 
 def analyze(text: str, use_model: bool = True, model_proba: float | None = None) -> Verdict:
@@ -118,12 +123,13 @@ def analyze(text: str, use_model: bool = True, model_proba: float | None = None)
     if mentions_only:
         rule_score *= MENTION_WEIGHT
         m = 0.0
-        has_core_signal = link_score > 0
 
     score = _noisy_or([rule_score, link_score, m])
     level = level_for(score)
-    if not has_core_signal and level == Level.DANGEROUS:
-        level = Level.SUSPICIOUS          # the model alone never says "dangerous"
+    if level == Level.DANGEROUS and level_for(_noisy_or([rule_score, link_score])) != Level.DANGEROUS:
+        # The AI model reads the same words as the rules, so it is not independent evidence.
+        # It may lift 🟢 to 🟡, but 🔴 always needs the rules or links on their own.
+        level = Level.SUSPICIOUS
         score = min(score, DANGEROUS_AT - 0.01)
 
     reasons: list[Reason] = []

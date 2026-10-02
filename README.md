@@ -16,7 +16,14 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 - 📷 **Reads screenshots**: OCR in Uzbek (Latin + Cyrillic), Russian and English, with adaptive thresholding so light- and dark-mode chat screenshots both work. Images are processed in memory only
 - 🚩 **Community blocklist**: users report scam sites, phone numbers and Telegram accounts. After 2 *different* people report the same one, everyone who meets it is warned. The threshold protects innocent people from a single false report. Numbers and accounts are stored only as salted SHA-256 fingerprints
 - 💬 **Inline mode**: type `@scamguard_uzbbot <link>` in *any* chat to get a verdict card; tapping it posts the verdict, signed by the bot (a built-in growth loop)
-- 📎 **File checks by name and type only**: .apk/.exe, double extensions like `photo.jpg.apk`, macro documents, archives. Files are never downloaded
+- 📱 **Looks inside .apk apps**: the bot reads the app's manifest in memory and explains what it could do: read SMS
+  codes, control the screen through Accessibility, draw fake login windows over bank apps, hide its icon, install
+  more apps. It reads through the file-damaging tricks banking trojans use to crash analysis tools.
+  Apps are **never installed, run or saved** (`scamguard/apk.py`)
+- 🌍 **Online link checks**: domain age (scam sites are usually days old), plus Google Safe Browsing and VirusTotal
+  when free API keys are set. Only the link is sent, without the part after `?`; slow services are skipped
+  (`scamguard/reputation.py`)
+- 📎 **File checks by name and type**: .exe, double extensions like `photo.jpg.apk`, macro documents, archives. Only .apk files are downloaded (into memory)
 - 🆘 **"I got scammed" guide**: block the card, secure Telegram, keep evidence, call 102
 - 📚 **Scam-types guide**: 8 common Uzbek scams with red flags
 - 👥 **Group protection**: stays silent on normal messages and warns only on dangerous ones; `/check` as a reply scans any message
@@ -44,13 +51,21 @@ It's in Uzbek, Russian and English, with light and dark themes, and it works on 
 ## How it works
 
 ```
-message ─┬─► rules.py      multilingual scam patterns (explainable)
+message ─┬─► intent.py     what does the sender want? (request / warning / story / quote)
+         ├─► rules.py      multilingual scam patterns (explainable)
          ├─► links.py      lookalike domains, shorteners, risky TLDs, .apk links, punycode, IPs
-         └─► model.py      ML classifier (char n-gram TF-IDF + logistic regression)
+         └─► model.py      AI classifier (char n-gram TF-IDF + logistic regression)
                  │
                  ▼
-          analyzer.py      noisy-OR combination → score, level, reasons
+          analyzer.py      offline verdict: score, level, reasons
+                 │
+                 ├─► reputation.py   online: domain age, Google Safe Browsing, VirusTotal (adds risk only)
+.apk file ──────►└─► apk.py          what the app may do, read from its manifest in memory
 ```
+
+- **The AI model** may raise 🟡 on its own once it is 75% sure. It reads the same words as the rules, so it is not
+  counted as independent proof: 🔴 always needs the rules or links on their own. On scam schemes it never saw,
+  it raised the share of scams caught from 60% to 72% with no extra false alarms (`data/eval/RESULTS.md`).
 
 - **Intent first** (`intent.py`): before scoring, the bot decides what the sender wants from the reader.
   It can be a **request** ("SMS kodni yuboring"), a **warning** ("SMS kodni hech kimga aytmang"), a **report**
@@ -62,7 +77,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 - **Lookalike detection** catches `c1ick.uz`, `paymе.uz` (with a Cyrillic "е"), `0lx-uz.com`, and `click-uz-bonus.xyz`, using homoglyph folding and edit distance against a list of official domains.
 - **Hidden links**: the bot also checks URLs hidden behind Telegram text links and inline buttons.
 - **The model only adds evidence.** It can raise a score but never overrules a rule, and every verdict stays explainable.
-- **Privacy**: messages are not stored. When a user presses a feedback button, the text is saved with card numbers, phone numbers and emails masked, and no user IDs. `.apk` files are never downloaded.
+- **Privacy**: messages are not stored. When a user presses a feedback button, the text is saved with card numbers, phone numbers and emails masked, and no user IDs. `.apk` files are read in memory and never installed, run or saved.
 
 ## Quick start
 
@@ -70,7 +85,7 @@ message ─┬─► rules.py      multilingual scam patterns (explainable)
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 167 tests incl. a simulated Telegram chat and real OCR
+python -m pytest                   # 217 tests incl. a simulated Telegram chat, real OCR and hostile APK files
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
@@ -83,7 +98,7 @@ python bot.py
 1. Push the repo to GitHub (`.env` is git-ignored, so your token never leaves your Mac).
 2. On [railway.com](https://railway.com): **New Project → Deploy from GitHub repo** → pick this repo.
    Railway builds the `Dockerfile`: it installs dependencies, trains the model and runs the tests. A broken commit never goes live.
-3. **Variables:** add `BOT_TOKEN`.
+3. **Variables:** add `BOT_TOKEN`. Optional: `GOOGLE_SAFE_BROWSING_KEY` and `VIRUSTOTAL_API_KEY` (see `.env.example`).
 4. **Volume:** add one mounted at `/data`, so stats, language settings and feedback survive redeploys.
 5. Stop any local copy of the bot. Telegram allows only one running instance per token.
 
@@ -98,9 +113,13 @@ Every `git push` then redeploys automatically.
 | `scamguard/textnorm.py` | Apostrophe unification, Cyrillic→Latin conversion, private-data masking |
 | `scamguard/model.py` | Loads the trained classifier |
 | `scamguard/analyzer.py` | Combines everything into a `Verdict` |
+| `scamguard/apk.py` | Static .apk inspection: tolerant zip + binary-XML manifest reader, permissions → plain explanations |
+| `scamguard/reputation.py` | Online checks: domain age (RDAP), Google Safe Browsing, VirusTotal; cached, time-limited |
+| `collect.py` | Turns real messages, screenshots and bot feedback into masked, labeled data (80% training / 20% holdout) |
 | `bot.py` | Telegram bot (aiogram 3) with feedback buttons |
 | `train.py` | Cross-validated comparison: rules vs. model vs. full system |
 | `data/seed_dataset.csv` | 99 **hand-written example** messages used to bootstrap training |
+| `data/synthetic_claude.csv` | 228 training messages **written by Claude (an AI)** to cover more scam schemes (`tools/make_synthetic.py`) |
 
 ## Collecting real messages
 
@@ -134,8 +153,10 @@ python evaluate.py --split test   # the held-out half: totals only (results in d
 
 ## ⚠️ Honest note on the current numbers
 
-The training data in `data/seed_*.csv` (180 messages) was written by hand to bootstrap the project, and the rules were
-tuned on it, so cross-validation scores on it are optimistic. Two things keep the bot honest:
+The training data (180 hand-written messages in `data/seed_*.csv` and 228 AI-written ones in `data/synthetic_claude.csv`)
+is imagined, not real, and the rules were tuned on the seed part, so cross-validation scores on it are optimistic.
+The numbers that count are on the held-out test half (`data/eval/RESULTS.md`) and, once real messages are collected,
+on the real holdout (`python collect.py score`). Two things keep the bot honest:
 
 - **Safety policy** (`analyzer.py`): the AI model only adds risk when it is confident, can never make a message
   "dangerous" on its own, and a safe verdict never shows risk reasons. Every warning has a concrete reason.
@@ -152,20 +173,27 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
 - [ ] Collect feedback through the buttons
 
 **Phase 2: the dataset, your main contribution (weeks 4–10)**
+- [x] Tooling: `collect.py` masks, de-duplicates and splits real messages into training and a never-trained holdout
 - [ ] Collect 1,000+ real scam messages: scams people forward to you, public Telegram channels that warn about scams, and screenshots from news reports (transcribe and mask them). Add an equal number of normal messages, including hard negatives such as real bank SMS and real OLX buyers
 - [ ] Label each message with a category and language, and write a labeling guide
 - [ ] Hold out a test set that is never used to write rules
 - [ ] Publish the anonymized dataset on Hugging Face with a datasheet
 
 **Phase 3: better AI (weeks 8–14)**
+- [x] Make the AI model count: 228 more varied training messages and a threshold chosen with scam types held out.
+  Scams caught on unseen schemes: 60% → 72%, false alarms unchanged (`data/eval/RESULTS.md`)
 - [ ] Fine-tune `xlm-roberta-base` (or a smaller multilingual model) and compare it with the baseline and the rules
 - [ ] Compare against a zero-shot LLM
 - [ ] Error analysis: which scam types and languages fail, and why
 
 **Phase 4: deeper security (later)**
-- [ ] Online link reputation: Google Safe Browsing, VirusTotal, domain age from WHOIS
-- [ ] APK static analysis with `androguard`: flag SMS-reading, accessibility and overlay permissions. Parse the file only. **Never install or run samples**, and keep them in an isolated environment
-- [ ] Group mode: the bot warns a group chat when someone posts a scam link
+- [x] Online link reputation: domain age (RDAP), Google Safe Browsing, VirusTotal (domains and app hashes)
+- [x] APK static analysis: SMS-reading, accessibility, overlay, notification-reading, device-admin and hidden-icon
+  checks, with a hand-written tolerant parser instead of `androguard` (real trojans corrupt their zip and manifest to
+  crash tools). Files are parsed only, **never installed or run**
+- [x] Group mode: the bot warns a group chat when someone posts a scam link
+- [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
+- [ ] Share confirmed fake sites with banks and the Central Bank as a feed (`/api/radar.json` is the start)
 
 ## Writing it up
 
