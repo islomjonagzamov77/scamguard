@@ -36,3 +36,36 @@ written by a separate AI that never saw the code. Split by group:
 **Next**
 - More data, especially real (masked) messages, to grow both halves.
 - A learned component that generalises better than rules (fine-tuned multilingual model), compared on the same test half.
+
+## 2026-10-02: the AI model starts to count
+
+Before this change the AI model never changed a verdict: it needed to be 94% sure to raise even a 🟡,
+and with 180 hand-written training messages it never was (results with and without it were identical).
+
+**What changed**
+- 228 more training messages (`data/synthetic_claude.csv`), written by Claude (an AI) to cover schemes the seed data
+  lacked: Telegram "vote for my niece" account theft, "I sent my code to you by mistake", fake loans with an upfront
+  fee, jobs abroad, task-based "like and earn" schemes, card rental (money mules), fake utility debts and traffic fines,
+  fake exam answers, rentals, tickets, customs fees, sextortion, plus normal look-alikes (real OTP SMS, bank
+  notifications, legit OLX buyers, official posts). Marked `synthetic_claude`, never written by looking at the test half.
+- The model alone may now raise 🟡 once it is 75% sure. The threshold was picked on the training data with each scam
+  *type* held out in turn (about 3-4% of normal messages go above it), not on the test half.
+- New safety rule: the model reads the same words as the rules, so it is not independent evidence. It can lift 🟢 to
+  🟡, but 🔴 always needs the rules or links on their own (this fixed a courier "SMS code" message on dev that the
+  model had pushed to 🔴).
+
+**Model alone** (dev half, only messages where the model counts): AUC 0.73 → 0.92.
+On scam types it never saw during training (one category held out at a time): AUC 0.88.
+
+| Version | Split | Scams caught | False alarms on safe | Needs-context → 🟡 | Pairs fully right |
+|---|---|---|---|---|---|
+| v3 rules + links only | test | 15/25 (60%) | 4/35 (11%) | 2/5 (40%) | 11/23 (48%) |
+| v3 rules + links + AI model | test | 18/25 (72%) | 4/35 (11%) | 2/5 (40%) | 12/23 (52%) |
+| v3 rules + links + AI model | dev | 32/32 (100%) | 0/46 (0%) | 7/7 (100%) | 30/30 (100%) |
+
+**What this shows**
+- The AI model now catches 3 more unseen scams with no extra false alarms. It is the first measured contribution
+  of the learned component.
+- 3 messages is a small difference on a 65-message test half; treat it as a direction, not a precise number.
+- The training data is still imagined (by people and by AI). The honest real-world number will come from
+  `python collect.py score` once real messages are collected.

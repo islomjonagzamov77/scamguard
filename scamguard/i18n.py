@@ -229,21 +229,30 @@ T: dict[str, dict[str, str]] = {
               "• Faqat «✅/❌» tugmasini bossangiz, xabar matni modelni yaxshilash uchun saqlanadi — "
               "karta, telefon raqamlari va emaillar oldindan o'chiriladi.\n"
               "• Ism va Telegram ID saqlanmaydi (til sozlamasi uchun faqat shifrlangan belgi).\n"
-              "• Fayllar yuklab olinmaydi va ochilmaydi. Skrinshotlar faqat xotirada o'qiladi va saqlanmaydi.\n"
+              "• .apk fayllar faqat xotirada ruxsatlarini o'qish uchun yuklanadi: o'rnatilmaydi, ishga tushirilmaydi, saqlanmaydi. "
+              "Boshqa fayllar yuklab olinmaydi. Skrinshotlar faqat xotirada o'qiladi va saqlanmaydi.\n"
+              "• Havolalar (\"?\" dan keyingi qismisiz) ochiq domen reyestrida (sayt yoshi), Google Safe Browsing va VirusTotal'da tekshirilishi mumkin; "
+              "xabar matni hech qayerga yuborilmaydi.\n"
               "• 🚩 Belgilangan raqam va akkauntlar faqat shifrlangan belgi sifatida saqlanadi.",
         "ru": "🔒 <b>Конфиденциальность</b>\n\n"
               "• Проверенные сообщения <b>не сохраняются</b>.\n"
               "• Только если вы нажмёте «✅/❌», текст сохраняется для улучшения модели — "
               "номера карт, телефонов и email предварительно удаляются.\n"
               "• Имя и Telegram ID не хранятся (для языка — только зашифрованный отпечаток).\n"
-              "• Файлы не скачиваются и не открываются. Скриншоты читаются только в памяти и не сохраняются.\n"
+              "• Файлы .apk загружаются только в память, чтобы прочитать их разрешения: не устанавливаются, не запускаются, "
+              "не сохраняются. Другие файлы не скачиваются. Скриншоты читаются только в памяти и не сохраняются.\n"
+              "• Ссылки (без части после «?») могут проверяться в открытом реестре доменов (возраст сайта), Google Safe Browsing и VirusTotal; "
+              "текст сообщения никуда не отправляется.\n"
               "• 🚩 Отмеченные номера и аккаунты хранятся только в виде зашифрованных отпечатков.",
         "en": "🔒 <b>Privacy</b>\n\n"
               "• Checked messages are <b>not stored</b>.\n"
               "• Only when you press ✅/❌ is the text saved to improve the model, "
               "with card numbers, phone numbers and emails removed first.\n"
               "• Names and Telegram IDs are not stored (only a hashed fingerprint for your language setting).\n"
-              "• Files are never downloaded or opened. Screenshots are read in memory only and never saved.\n"
+              "• .apk files are loaded into memory only to read their permissions: never installed, run or saved. "
+              "Other files are never downloaded. Screenshots are read in memory only and never saved.\n"
+              "• Links (without the part after \"?\") may be checked with the public domain registry (site age), Google Safe Browsing and VirusTotal; "
+              "message text is never sent anywhere.\n"
               "• 🚩 Reported numbers and accounts are stored only as hashed fingerprints.",
     },
     # ---------- groups ----------

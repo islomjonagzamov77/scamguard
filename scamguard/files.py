@@ -1,4 +1,5 @@
-"""File checks based on name and type only. Files are never downloaded or opened."""
+"""File checks based on name and type. Nothing is downloaded here; for .apk files the bot also
+looks inside the app in memory (see apk.py)."""
 
 from __future__ import annotations
 
@@ -20,6 +21,16 @@ ARCHIVE = {"zip", "rar", "7z", "tar", "gz", "iso"}
 DECOY = {"jpg", "jpeg", "png", "gif", "pdf", "doc", "docx", "mp4", "mp3", "txt", "xls", "xlsx", "heic"}
 
 APK_MIME = "application/vnd.android.package-archive"
+
+# General .apk warning, used when nobody looked inside the app (see scamguard/apk.py).
+APK_REASON = Reason(
+    ".apk — bu rasm yoki hujjat emas, telefonga o'rnatiladigan Android ilova. "
+    "Bunday fayllar SMS kodlaringizni o'qib, kartangizdan pul yechishi mumkin",
+    ".apk is an installable Android app, not a photo or document. "
+    "These can read your SMS codes and drain your card",
+    ".apk — это не фото и не документ, а устанавливаемое Android-приложение. "
+    "Оно может читать ваши SMS-коды и списать деньги с карты",
+)
 
 
 @dataclass
@@ -44,14 +55,7 @@ def check_file(file_name: str | None, mime_type: str | None = None) -> FileVerdi
                 f"Двойное расширение (.{prev_ext}.{ext}): притворяется .{prev_ext}, а на деле это программа",
             ))
         if ext in {"apk", "xapk", "apks"} or mime_type == APK_MIME:
-            reasons.append(Reason(
-                ".apk — bu rasm yoki hujjat emas, telefonga o'rnatiladigan Android ilova. "
-                "Bunday fayllar SMS kodlaringizni o'qib, kartangizdan pul yechishi mumkin",
-                ".apk is an installable Android app, not a photo or document. "
-                "These can read your SMS codes and drain your card",
-                ".apk — это не фото и не документ, а устанавливаемое Android-приложение. "
-                "Оно может читать ваши SMS-коды и списать деньги с карты",
-            ))
+            reasons.append(APK_REASON)
         else:
             reasons.append(Reason(
                 f".{ext} — ochilganda ishga tushadigan dastur. Notanish odamdan kelgan bo'lsa, ochmang",
