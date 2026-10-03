@@ -51,6 +51,7 @@ from aiogram.types import (
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
+import scamguard
 from scamguard import apk, blocklist, ocr, radar, reputation
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import APK_REASON, check_file
@@ -384,6 +385,37 @@ async def add_online_checks(result: Result) -> Result:
     if result.level != Level.SAFE:
         result.trust = []
     return result
+
+
+def plain(text: str) -> str:
+    """Telegram HTML -> plain text for the website (the page inserts it as text, never as HTML)."""
+    return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
+
+
+def verdict_json(r: Result, lang: str) -> dict:
+    """A verdict for the website and the public API: the same words the bot would send."""
+    title = plain(t(f"v_{r.level.value}", lang))
+    if title[:1] in "🟢🟡🔴":
+        title = title[1:].strip()
+    return {
+        "level": r.level.value,
+        "risk": None if r.level == Level.SAFE else round(r.score * 100),
+        "title": title,
+        "reasons": [plain(x.text(lang)) for x in r.reasons[:8]],
+        "trust": [plain(x.text(lang)) for x in r.trust] if r.level == Level.SAFE else [],
+        "advice": plain(t(f"a_{r.level.value}", lang)),
+        "signals": list(dict.fromkeys(r.signals)),
+        "engine": f"scamguard {scamguard.__version__}",
+    }
+
+
+async def web_check(text: str, lang: str) -> dict:
+    """A check from the Scam Radar website or the public API: the same pipeline as the bot (rules, links,
+    AI model, community blocklist, online reputation). The text is not stored; like every bot check,
+    only the anonymous counts, the scam category and fake-site domains reach the radar."""
+    result = await add_online_checks(evaluate_text(text))
+    record(result)
+    return verdict_json(result, lang)
 
 
 def render(lang: str, r: Result, file_name: str | None = None, source: str | None = None, ocr_text: str = "") -> str:
@@ -790,7 +822,7 @@ async def main() -> None:
     await setup_profile(bot)
     dp.include_routers(private, groups)
     # Public Scam Radar website on $PORT (Railway: Settings -> Networking -> Generate Domain)
-    web_app = radar_web.build_app(lambda: storage, lambda: BOT_USERNAME, blocklist.REPORT_THRESHOLD)
+    web_app = radar_web.build_app(lambda: storage, lambda: BOT_USERNAME, blocklist.REPORT_THRESHOLD, check=web_check)
     await radar_web.start(web_app)
     log.info("Scam Radar website listening on port %s", os.getenv("PORT", "8080"))
     log.info("ScamGuard bot started as @%s", me.username)
