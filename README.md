@@ -5,6 +5,16 @@ It understands Uzbek (Latin and Cyrillic), Russian and English.
 
 Users forward a suspicious message, link or file. ScamGuard replies with a verdict (🟢 safe / 🟡 suspicious / 🔴 dangerous) and says *why*, for example "this domain imitates click.uz" or "real banks never ask for SMS codes".
 
+The same engine also runs on the **Scam Radar website** (check a message in the browser, no Telegram needed),
+behind a **public API**, and publishes a **threat feed** of detected fake sites that banks and DNS filters can use.
+
+| Channel | For whom | What it does |
+|---|---|---|
+| Telegram bot | everyone | messages, links, screenshots, `.apk` files, inline mode, groups |
+| Scam Radar website + Telegram Mini App | everyone | live scam trends, fake sites, **message checker** |
+| `POST /api/v1/check` | developers | the bot's verdict as JSON |
+| `/api/v1/feed.txt`, `/api/v1/feed.json` | banks, CERTs, Pi-hole / AdGuard | detected fake-site domains |
+
 ## Why this project exists
 
 Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fake "bank security" calls, OLX "receive your payment here" links, and `.apk` files disguised as photos that steal SMS codes. Existing scam filters are built for English. There is almost no public tooling or data for Uzbek.
@@ -39,14 +49,65 @@ The bot also serves a public page that shows what ScamGuard is catching across U
 a 30-day trend, the most common scam types, and recently detected fake sites.
 It's in Uzbek, Russian and English, with light and dark themes, and it works on phones.
 
+- **Message checker:** paste a message or link on the page and get the same explained verdict as in the bot,
+  with example messages to try. It also works inside Telegram, where the page opens as a Mini App.
+  The text is never stored; only the anonymous counts reach the radar, exactly like a bot check.
+
 - **Privacy by design:** only aggregated counts, scam categories and fake-site domains are published. Message text,
   users, phone numbers and Telegram accounts are never published (enforced by `tests/test_radar.py`).
 - Fake sites are **defanged** (`el-yurt-grant[.]xyz`), so nobody opens them by accident.
 - Total counters appear only after 100 checks (`SCAMGUARD_SHOW_TOTALS_FROM`).
 - Security: a strict Content-Security-Policy (the inline script is pinned by its SHA-256 hash), no third-party scripts
   or fonts, `nosniff`, and only Telegram may embed the page (`frame-ancestors`).
-- Endpoints: `/` (page), `/api/radar.json` (data, cached 30s), `/healthz`.
+- Endpoints: `/` (page), `/api/radar.json` (data, cached 30s), `/healthz`, plus the public API below.
 - On Railway: **Settings → Networking → Generate Domain**. The web server listens on `$PORT` (default 8080).
+
+## Public API
+
+Base address: your Scam Radar domain (Railway: **Settings → Networking**). All responses are JSON in UTF-8.
+
+### `POST /api/v1/check`: check a message
+
+```bash
+curl -s https://YOUR-DOMAIN/api/v1/check \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Kartangiz bloklandi, SMS kodni yuboring", "lang": "en"}'
+```
+
+```json
+{
+  "level": "dangerous",
+  "risk": 86,
+  "title": "Dangerous! This looks like a scam",
+  "reasons": ["The message asks you to do this: «Kartangiz bloklandi, SMS kodni yuboring»",
+              "Asks for an SMS code, card number or CVV — never share these",
+              "Scares you that your card or account is blocked",
+              "The AI model rates this text 86% likely to be a scam"],
+  "trust": [],
+  "advice": "Don't open links, install files, send money or share any code. Block the sender.",
+  "signals": ["secret_code", "blocked_account", "ai_model"],
+  "engine": "scamguard 0.2.0"
+}
+```
+
+- `text`: up to 4000 characters. `lang`: `uz`, `ru` or `en` (the language of the explanation; the message itself can be in any of the three).
+- `level` is `safe`, `suspicious` or `dangerous`; `risk` is 0–100, or `null` when safe.
+- Same pipeline as the bot: intent, rules, link analysis, AI model, community blocklist and online reputation.
+- **Limits:** 8 checks per minute per visitor and 120 per minute in total (HTTP `429` with `Retry-After`).
+  Only `Content-Type: application/json` is accepted, so other websites can't make visitors' browsers call it.
+- **Privacy:** the text is not stored or logged. Like a bot check, only the anonymous counts, the scam
+  category and fake-site domains reach the radar (`tests/test_web_api.py` checks the database for leaks).
+
+### `GET /api/v1/feed.txt` and `GET /api/v1/feed.json`: threat feed
+
+Fake and scam websites detected by the bot (rules, link analysis, online reputation) or reported by at least
+2 different users. Phone numbers and Telegram accounts are **never** published, and official sites and link
+shorteners are never listed.
+
+- `feed.txt`: one domain per line with `#` comments. **Pi-hole, AdGuard Home and uBlock Origin** can import it as a blocklist.
+- `feed.json`: every indicator with `type` (`domain`, or `url` for a single page on a big platform), `first_seen`,
+  `last_seen`, `detections`, `reporters` and `source` (`auto`, `community` or `both`).
+- Updated every 5 minutes. Automatic detections can be wrong: please report false positives as a GitHub issue.
 
 ## How it works
 
@@ -85,7 +146,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 217 tests incl. a simulated Telegram chat, real OCR and hostile APK files
+python -m pytest                   # 232 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
 python train.py                    # train the model and print the evaluation
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
@@ -113,6 +174,8 @@ Every `git push` then redeploys automatically.
 | `scamguard/textnorm.py` | Apostrophe unification, Cyrillic→Latin conversion, private-data masking |
 | `scamguard/model.py` | Loads the trained classifier |
 | `scamguard/analyzer.py` | Combines everything into a `Verdict` |
+| `scamguard/web/server.py` | Scam Radar website, message-checker API, threat feed, rate limiting, security headers |
+| `scamguard/radar.py` | Privacy-safe aggregates for the radar and the threat feed |
 | `scamguard/apk.py` | Static .apk inspection: tolerant zip + binary-XML manifest reader, permissions → plain explanations |
 | `scamguard/reputation.py` | Online checks: domain age (RDAP), Google Safe Browsing, VirusTotal; cached, time-limited |
 | `collect.py` | Turns real messages, screenshots and bot feedback into masked, labeled data (80% training / 20% holdout) |
@@ -193,7 +256,9 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
   crash tools). Files are parsed only, **never installed or run**
 - [x] Group mode: the bot warns a group chat when someone posts a scam link
 - [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
-- [ ] Share confirmed fake sites with banks and the Central Bank as a feed (`/api/radar.json` is the start)
+- [x] Threat feed of detected fake sites (`/api/v1/feed.txt` for DNS filters, `/api/v1/feed.json` for banks and CERTs)
+- [x] Check a message on the website and in the Telegram Mini App; public `POST /api/v1/check` API
+- [ ] Offer the feed to UZCERT, banks and the Central Bank
 
 ## Writing it up
 

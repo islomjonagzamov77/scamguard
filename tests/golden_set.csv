@@ -56,3 +56,6 @@ safe,"Grant g'oliblari ro'yxati jamg'arma saytida e'lon qilindi: el-yurt.uz",leg
 flag,"Men komissiya a'zosiman, 3000$ evaziga grantni kafolatlayman",fake grant guarantee
 flag,"Посылка задержана на таможне, оплатите 15 000 сум пошлины по ссылке",russian parcel fee
 flag,"Telefonim buzildi, do'stimning raqamidan yozyapman, zudlik bilan pul kerak",relative variant
+flag,"Your card has been blocked! To unblock it, send us the code from the SMS.",english blocked card + sms code (was missed)
+flag,"Your card is blocked, send the SMS code",english short sms-code ask (was missed)
+safe,"Your code is 482913. Do not share this code with anyone, including bank staff.",english real bank OTP

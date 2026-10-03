@@ -32,6 +32,9 @@
   --chip-ink: #24518a;
   --warn-bg: #fff4ec;
   --warn-ink: #9a3b12;
+  --lv-safe: #12805c;  --lv-safe-bg: #e8f6ef;
+  --lv-sus: #a15c00;   --lv-sus-bg: #fff5e0;
+  --lv-dan: #c62f2f;   --lv-dan-bg: #fdecec;
   --brand-mint: #3cf0b4;
   --brand-sky: #1a9fe0;
   --navy-1: #07152b;
@@ -60,6 +63,9 @@
     --chip-ink: #a9c9f5;
     --warn-bg: #2a1a12;
     --warn-ink: #f3b08f;
+    --lv-safe: #4fd1a1;  --lv-safe-bg: #0f2a24;
+    --lv-sus: #f2b34c;   --lv-sus-bg: #2c2210;
+    --lv-dan: #ff7a72;   --lv-dan-bg: #331516;
   }
 }
 * { box-sizing: border-box; }
@@ -105,7 +111,7 @@ a { color: inherit; }
   position: relative; overflow: hidden; color: #fff;
   background: radial-gradient(1200px 520px at 20% -10%, #1d5285 0%, rgba(21, 64, 107, 0) 60%),
               linear-gradient(180deg, var(--navy-1) 0%, #0b2140 100%);
-  padding: 56px 0 64px;
+  padding: 56px 0 96px;
 }
 .hero .rings { position: absolute; right: -120px; top: -80px; width: 620px; height: 620px; opacity: .55; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
@@ -114,6 +120,8 @@ a { color: inherit; }
 .hero p.lead { font-size: clamp(17px, 2vw, 20px); color: #c6d3e6; max-width: 620px; margin: 0 0 28px; }
 .hero h1 { margin-top: 0; }
 .cta[hidden] { display: none; }
+.btn-ghost { color: #fff; background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.btn-ghost[hidden] { display: none; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; }
 
 /* ---------- tiles ---------- */
@@ -200,6 +208,57 @@ details.table-view summary { cursor: pointer; color: var(--ink-2); font-size: 14
 .g-card .flag b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
 
 
+/* ---------- checker ---------- */
+.checker { position: relative; margin-top: -36px; z-index: 2; scroll-margin-top: 80px; }
+.checker .card { padding: 24px; }
+.checker h2 { font-size: clamp(20px, 2.4vw, 24px); letter-spacing: -0.02em; margin: 0 0 4px; }
+.checker .hint { margin-bottom: 14px; }
+.chk-input { width: 100%; min-height: 120px; resize: vertical; display: block;
+  font: 16px/1.5 var(--font); color: var(--ink); background: var(--surface-2);
+  border: 1px solid var(--axis); border-radius: 12px; padding: 12px 14px; }
+.chk-input:focus { outline: 2px solid var(--brand-sky); outline-offset: 1px; border-color: transparent; }
+.chk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.chk-bar .spacer { flex: 1; }
+.chk-ex { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.chip { appearance: none; border: 1px solid var(--border); background: var(--chip-bg); color: var(--chip-ink);
+  font: 600 13px/1 var(--font); padding: 8px 11px; border-radius: 999px; cursor: pointer; }
+.chip:hover { filter: brightness(1.05); }
+.chip:focus-visible, .chk-btn:focus-visible { outline: 2px solid var(--brand-sky); outline-offset: 2px; }
+.chk-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.chk-count.over { color: var(--lv-dan); font-weight: 650; }
+.chk-btn { appearance: none; border: 0; cursor: pointer; }
+.chk-btn[disabled] { opacity: .6; cursor: progress; transform: none; }
+.chk-note { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.chk-note a { color: var(--ink-2); }
+.result { margin-top: 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); overflow: hidden; }
+.result[hidden] { display: none; }
+.res-head { display: flex; align-items: center; gap: 14px; padding: 16px 18px; background: var(--res-bg); }
+.res-dot { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff; background: var(--res); }
+.res-dot svg { width: 22px; height: 22px; }
+.res-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: var(--res); line-height: 1.25; }
+.res-risk { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; color: var(--ink-2); }
+.res-risk span { white-space: nowrap; }
+.meter { width: 140px; max-width: 40vw; height: 6px; border-radius: 99px; background: var(--grid); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--res); border-radius: 99px; transition: width .4s ease; }
+.res-body { padding: 4px 18px 18px; }
+.res-body h4 { margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.res-body ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+.res-body li { overflow-wrap: anywhere; }
+.res-advice { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 15px; }
+.lv-safe { --res: var(--lv-safe); --res-bg: var(--lv-safe-bg); }
+.lv-suspicious { --res: var(--lv-sus); --res-bg: var(--lv-sus-bg); }
+.lv-dangerous { --res: var(--lv-dan); --res-bg: var(--lv-dan-bg); }
+.chk-msg { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; }
+.chk-msg[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+
+/* ---------- open data ---------- */
+.feed-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.feed-links a { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font: 600 14px/1 var(--font);
+  padding: 11px 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); color: var(--ink); }
+.feed-links a:hover { border-color: var(--axis); }
+.feed-links code { font: 12px var(--mono); color: var(--muted); }
+
 /* banner + about + footer */
 .banner { display: none; margin-top: 16px; padding: 12px 16px; border-radius: 12px; background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; }
 .banner.on { display: block; }
@@ -218,10 +277,15 @@ footer p { margin: 0; max-width: 620px; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
+  .checker { margin-top: -24px; }
+  .checker .card { padding: 18px 16px; }
+  .chk-bar .chk-btn { width: 100%; justify-content: center; }
+  .chk-bar .spacer { display: none; }
+  .meter { width: 96px; }
   .nav .wrap { gap: 10px; }
   .brand .tag { display: none; }
   .langs button { padding: 7px 8px; }
-  .hero { padding: 36px 0 40px; }
+  .hero { padding: 36px 0 64px; }
   .hero .rings { width: 420px; height: 420px; right: -180px; top: -60px; }
   .tile { padding: 16px; }
   .tile .value { font-size: 26px; }
@@ -272,11 +336,30 @@ footer p { margin: 0; max-width: 620px; }
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.7 19.5c-.2 1.1-.9 1.3-1.8.8l-4.9-3.6-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.2 13 1.4 11.5c-1-.3-1.1-1 .2-1.5l18.8-7.2c.9-.3 1.7.2 1.5 1.5Z"/></svg>
         <span data-i18n="cta_check"></span>
       </a>
+      <a class="btn btn-ghost" href="#check" id="cta-here"><span data-i18n="cta_here"></span></a>
     </div>
   </div>
 </header>
 
 <main class="wrap" id="main">
+  <section class="checker" id="check" aria-labelledby="chk-h">
+    <div class="card">
+      <h2 id="chk-h" data-i18n="chk_h"></h2>
+      <p class="hint" data-i18n="chk_p"></p>
+      <label class="sr" for="chk-text" data-i18n="chk_h"></label>
+      <textarea id="chk-text" class="chk-input" maxlength="4000" spellcheck="false" autocomplete="off"></textarea>
+      <div class="chk-bar">
+        <div class="chk-ex" id="chk-ex"><span data-i18n="chk_try"></span></div>
+        <div class="spacer"></div>
+        <span class="chk-count" id="chk-count" aria-live="polite">0 / 4000</span>
+        <button type="button" class="btn btn-primary chk-btn" id="chk-btn"><span id="chk-btn-l" data-i18n="chk_btn"></span></button>
+      </div>
+      <div class="chk-msg" id="chk-msg" role="alert" hidden></div>
+      <div class="result" id="chk-res" aria-live="polite" hidden></div>
+      <p class="chk-note"><span data-i18n="chk_privacy"></span> <a href="https://t.me/{{BOT}}" rel="noopener" data-i18n="chk_bot"></a></p>
+    </div>
+  </section>
+
   <div class="tiles" id="tiles" aria-live="polite" hidden></div>
   <div class="banner" id="banner" role="status"></div>
 
@@ -317,6 +400,18 @@ footer p { margin: 0; max-width: 620px; }
     <div class="guide" id="guide"></div>
   </section>
 
+  <section class="block" aria-labelledby="data-h">
+    <div class="card">
+      <h3 id="data-h" data-i18n="data_h"></h3>
+      <p class="hint" data-i18n="data_p"></p>
+      <div class="feed-links">
+        <a href="/api/v1/feed.txt" rel="nofollow"><span data-i18n="data_txt"></span> <code>.txt</code></a>
+        <a href="/api/v1/feed.json" rel="nofollow"><span data-i18n="data_json"></span> <code>.json</code></a>
+        <a href="{{GITHUB}}#public-api" rel="noopener"><span data-i18n="data_api"></span> <code>API</code></a>
+      </div>
+    </div>
+  </section>
+
   <section class="block about" aria-labelledby="about-h">
     <details>
       <summary id="about-h" data-i18n="about_h"></summary>
@@ -340,7 +435,22 @@ footer p { margin: 0; max-width: 620px; }
     uz: {
       h1a: "O'zbekistondagi firibgarliklar", h1b: "radari",
       lead: "Qaysi firibgarlik turlari ko'payayotgani, qaysi soxta saytlar tarqalayotgani va ulardan qanday himoyalanish kerakligi — ScamGuard ma'lumotlari asosida.",
-      cta_check: "Xabarni tekshirish",
+      cta_check: "Telegram botda tekshirish", cta_here: "Saytda tekshirish",
+      chk_h: "Shubhali xabarni shu yerda tekshiring",
+      chk_p: "Xabar yoki havolani joylang — ScamGuard xavf darajasini va sababini ko'rsatadi.",
+      chk_ph: "Masalan: Tabriklaymiz! Siz iPhone yutib oldingiz, sovg'ani olish uchun havolaga o'ting…",
+      chk_btn: "Tekshirish", chk_busy: "Tekshirilmoqda…", chk_try: "Misol:",
+      chk_risk: "Xavf darajasi", chk_low: "past", chk_why: "Nima uchun", chk_trust: "Ishonch belgilari", chk_advice: "Maslahat",
+      chk_empty: "Avval xabar matnini kiriting.", chk_long: "Matn juda uzun: ko'pi bilan 4000 belgi.",
+      chk_rate: "Juda ko'p tekshiruv. Bir daqiqadan so'ng qayta urinib ko'ring.",
+      chk_err: "Tekshirib bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+      chk_privacy: "🔒 Matn saqlanmaydi, faqat anonim statistika hisoblanadi.", chk_bot: "Skrinshot yoki .apk faylni botga yuboring →",
+      ex: [["SMS kod", "Kartangiz bloklandi! Blokdan chiqarish uchun SMS orqali kelgan kodni yuboring."],
+           ["Soxta grant", "Tabriklaymiz! El-yurt umidi grantini yutdingiz. 24 soat ichida ro'yxatdan o'ting: el-yurt-grant.xyz"],
+           ["Oddiy xabar", "Salom! Ertaga soat 10 da kutubxonada uchrashamizmi?"]],
+      data_h: "Banklar va dasturchilar uchun ochiq ma'lumot",
+      data_p: "Aniqlangan soxta saytlar ro'yxati har kuni yangilanadi: uni DNS-filtrlar (Pi-hole, AdGuard), banklar va xavfsizlik tizimlari to'g'ridan-to'g'ri ishlata oladi.",
+      data_txt: "Soxta domenlar ro'yxati", data_json: "To'liq ma'lumot", data_api: "Tekshirish API",
       t_checks: "Jami tekshirilgan", t_scams: "Firibgarlik aniqlangan", t_blocked: "Jamoa bloklagan",
       trend_h: "So'nggi 30 kun", trend_h_since: "Ishga tushgandan beri", trend_p: "Har kuni tekshirilgan xabarlar va ulardan firibgarlik deb topilganlari.",
       s_checks: "Tekshirilgan xabarlar", s_scams: "Firibgarlik aniqlangan",
@@ -366,7 +476,22 @@ footer p { margin: 0; max-width: 620px; }
     ru: {
       h1a: "Радар мошенничества", h1b: "в Узбекистане",
       lead: "Какие схемы мошенничества растут, какие фейковые сайты распространяются и как от них защититься — по данным ScamGuard.",
-      cta_check: "Проверить сообщение",
+      cta_check: "Проверить в Telegram-боте", cta_here: "Проверить на сайте",
+      chk_h: "Проверьте подозрительное сообщение здесь",
+      chk_p: "Вставьте сообщение или ссылку — ScamGuard покажет уровень риска и объяснит почему.",
+      chk_ph: "Например: Поздравляем! Вы выиграли iPhone, получите подарок по ссылке…",
+      chk_btn: "Проверить", chk_busy: "Проверяем…", chk_try: "Пример:",
+      chk_risk: "Уровень риска", chk_low: "низкий", chk_why: "Почему", chk_trust: "Признаки доверия", chk_advice: "Совет",
+      chk_empty: "Сначала вставьте текст сообщения.", chk_long: "Текст слишком длинный: максимум 4000 символов.",
+      chk_rate: "Слишком много проверок. Попробуйте через минуту.",
+      chk_err: "Не удалось проверить. Проверьте интернет и попробуйте ещё раз.",
+      chk_privacy: "🔒 Текст не сохраняется, считается только анонимная статистика.", chk_bot: "Скриншот или .apk — отправьте боту →",
+      ex: [["SMS-код", "Ваша карта заблокирована! Для разблокировки сообщите код из SMS."],
+           ["OLX", "Здравствуйте, я оплатил ваш товар на OLX. Получите деньги по ссылке: olx-pay.top"],
+           ["Обычное", "Привет! Встретимся завтра в 10 у библиотеки?"]],
+      data_h: "Открытые данные для банков и разработчиков",
+      data_p: "Список найденных фейковых сайтов обновляется каждый день: его можно напрямую подключить к DNS-фильтрам (Pi-hole, AdGuard), банковским и защитным системам.",
+      data_txt: "Список фейковых доменов", data_json: "Полные данные", data_api: "API проверки",
       t_checks: "Всего проверено", t_scams: "Найдено мошенничеств", t_blocked: "Заблокировано сообществом",
       trend_h: "Последние 30 дней", trend_h_since: "С момента запуска", trend_p: "Сколько сообщений проверено каждый день и сколько из них оказались мошенническими.",
       s_checks: "Проверено сообщений", s_scams: "Найдено мошенничество",
@@ -392,7 +517,22 @@ footer p { margin: 0; max-width: 620px; }
     en: {
       h1a: "Uzbekistan's scam", h1b: "radar",
       lead: "Which scams are rising, which fake websites are spreading, and how to protect yourself, based on ScamGuard data.",
-      cta_check: "Check a message",
+      cta_check: "Check in the Telegram bot", cta_here: "Check on the website",
+      chk_h: "Check a suspicious message right here",
+      chk_p: "Paste a message or a link. ScamGuard shows the risk and explains why.",
+      chk_ph: "For example: Congratulations! You won an iPhone, claim your gift at the link…",
+      chk_btn: "Check", chk_busy: "Checking…", chk_try: "Try:",
+      chk_risk: "Risk level", chk_low: "low", chk_why: "Why", chk_trust: "Trust signals", chk_advice: "What to do",
+      chk_empty: "Paste the message text first.", chk_long: "The text is too long: 4000 characters at most.",
+      chk_rate: "Too many checks. Please try again in a minute.",
+      chk_err: "Couldn't check it. Check your connection and try again.",
+      chk_privacy: "🔒 The text isn't stored; only anonymous counts are kept.", chk_bot: "Screenshot or .apk? Send it to the bot →",
+      ex: [["SMS code", "Your card has been blocked! To unblock it, send us the code from the SMS."],
+           ["Fake prize", "Congratulations! You won an iPhone 16. Claim your prize within 24 hours: c1ick-bonus.online"],
+           ["Normal", "Hi! Shall we meet at the library tomorrow at 10?"]],
+      data_h: "Open data for banks and developers",
+      data_p: "The list of detected fake sites updates every day. DNS filters (Pi-hole, AdGuard), banks and security systems can use it directly.",
+      data_txt: "Fake-domain list", data_json: "Full data", data_api: "Checking API",
       t_checks: "Total checked", t_scams: "Scams detected", t_blocked: "Blocked by the community",
       trend_h: "Last 30 days", trend_h_since: "Since launch", trend_p: "Messages checked each day, and how many of them were scams.",
       s_checks: "Messages checked", s_scams: "Scams detected",
@@ -452,6 +592,10 @@ footer p { margin: 0; max-width: 620px; }
     document.documentElement.lang = state.lang;
     document.querySelectorAll("[data-i18n]").forEach(function (n) { n.textContent = t(n.getAttribute("data-i18n")); });
     document.querySelectorAll(".langs button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)); });
+    $("chk-text").placeholder = t("chk_ph");
+    renderExamples();
+    updateCount();
+    if (chk.last) renderResult(chk.last.lang === state.lang ? chk.last.data : null);
     if (state.data) renderAll();
   }
   document.querySelectorAll(".langs button").forEach(function (b) {
@@ -459,7 +603,110 @@ footer p { margin: 0; max-width: 620px; }
       state.lang = b.dataset.lang;
       try { localStorage.setItem("sg_lang", state.lang); } catch (e) {}
       applyLang();
+      if (chk.last && chk.last.lang !== state.lang && $("chk-text").value.trim() === chk.text) runCheck();
     });
+  });
+
+
+  /* ---------- message checker (POST /api/v1/check: same engine as the bot) ---------- */
+  var chk = { busy: false, last: null, text: "" };
+  var ICONS = {
+    safe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    suspicious: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>',
+    dangerous: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>'
+  };
+  function renderExamples() {
+    var box = $("chk-ex");
+    while (box.children.length > 1) box.removeChild(box.lastChild);
+    (T[state.lang].ex || T.uz.ex).forEach(function (e) {
+      var b = el("button", "chip", e[0]); b.type = "button";
+      b.addEventListener("click", function () { $("chk-text").value = e[1]; updateCount(); runCheck(); });
+      box.appendChild(b);
+    });
+  }
+  function updateCount() {
+    var n = $("chk-text").value.length, c = $("chk-count");
+    c.textContent = fmt(n) + " / " + fmt(4000);
+    c.classList.toggle("over", n > 4000);
+  }
+  function showMsg(key) {
+    var m = $("chk-msg");
+    m.hidden = !key; m.textContent = key ? t(key) : "";
+  }
+  function list(title, items) {
+    var frag = document.createDocumentFragment();
+    frag.appendChild(el("h4", null, title));
+    var ul = el("ul");
+    items.forEach(function (x) { ul.appendChild(el("li", null, x)); });
+    frag.appendChild(ul);
+    return frag;
+  }
+  function renderResult(d) {
+    var box = $("chk-res");
+    box.textContent = "";
+    box.hidden = !d;
+    if (!d) return;
+    box.className = "result lv-" + d.level;
+    var head = el("div", "res-head");
+    var dot = el("div", "res-dot"); dot.innerHTML = ICONS[d.level] || ""; dot.setAttribute("aria-hidden", "true");
+    var mid = el("div");
+    mid.appendChild(el("div", "res-title", d.title));
+    var risk = el("div", "res-risk");
+    risk.appendChild(el("span", null, t("chk_risk") + ": "));
+    risk.appendChild(el("b", null, d.risk == null ? t("chk_low") : d.risk + "%"));
+    var meter = el("div", "meter"), fill = el("i");
+    fill.style.width = (d.risk == null ? 6 : Math.max(6, d.risk)) + "%";
+    meter.appendChild(fill); meter.setAttribute("aria-hidden", "true"); risk.appendChild(meter);
+    mid.appendChild(risk);
+    head.appendChild(dot); head.appendChild(mid); box.appendChild(head);
+    var body = el("div", "res-body");
+    if (d.reasons && d.reasons.length) body.appendChild(list(t("chk_why"), d.reasons));
+    if (d.trust && d.trust.length) body.appendChild(list(t("chk_trust"), d.trust));
+    var adv = el("div", "res-advice");
+    adv.appendChild(el("b", null, "💡 " + t("chk_advice") + ": "));
+    adv.appendChild(document.createTextNode(d.advice));
+    body.appendChild(adv);
+    box.appendChild(body);
+  }
+  function setBusy(on) {
+    chk.busy = on;
+    $("chk-btn").disabled = on;
+    $("chk-btn-l").textContent = t(on ? "chk_busy" : "chk_btn");
+    $("chk-res").classList.toggle("state-busy", on);
+  }
+  function runCheck() {
+    if (chk.busy) return;
+    var text = $("chk-text").value.trim();
+    showMsg(null);
+    if (!text) { showMsg("chk_empty"); $("chk-text").focus(); return; }
+    if (text.length > 4000) { showMsg("chk_long"); return; }
+    var lang = state.lang;
+    setBusy(true);
+    fetch("/api/v1/check", { method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+                             body: JSON.stringify({ text: text, lang: lang }) })
+      .then(function (r) {
+        if (r.status === 429) throw new Error("chk_rate");
+        if (r.status === 413) throw new Error("chk_long");
+        if (r.status === 503) { $("check").hidden = true; throw new Error(""); }
+        if (!r.ok) throw new Error("chk_err");
+        return r.json();
+      })
+      .then(function (d) {
+        chk.last = { lang: lang, data: d }; chk.text = text;
+        renderResult(d);
+        if (window.matchMedia("(max-width: 640px)").matches) $("chk-res").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      })
+      .catch(function (e) { if (e.message) showMsg(T.uz[e.message] ? e.message : "chk_err"); })
+      .finally(function () { setBusy(false); });
+  }
+  $("chk-btn").addEventListener("click", runCheck);
+  $("chk-text").addEventListener("input", function () {
+    updateCount();
+    // the shown verdict belongs to the old text: hide it once the text changes
+    if (chk.last && $("chk-text").value.trim() !== chk.text) { chk.last = null; renderResult(null); }
+  });
+  $("chk-text").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); runCheck(); }
   });
 
   /* ---------- tiles ---------- */

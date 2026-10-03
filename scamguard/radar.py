@@ -61,6 +61,56 @@ def defang(domain: str) -> str:
     return domain.replace(".", "[.]")
 
 
+FEED_MAX = 500
+
+
+def feed(storage, report_threshold: int, limit: int = FEED_MAX) -> list[dict]:
+    """Threat-intelligence feed for banks, CERTs and filters: fake-site domains only.
+
+    Unlike the page, the indicators are NOT defanged (machines read this, not people), and no
+    phone numbers or Telegram accounts are ever included, same as the radar. A domain is listed
+    when the bot itself flagged it as clearly malicious, or when enough different people reported it.
+    """
+    entries: dict[str, dict] = {}
+    for domain, first_seen, last_seen, hits in storage.recent_domains(limit):
+        if _is_official(domain) or domain in SHORTENERS:     # defence in depth: never list a real site
+            continue
+        entries[domain] = {"indicator": domain, "type": "domain", "first_seen": first_seen, "last_seen": last_seen,
+                           "detections": hits, "reporters": 0, "source": "auto"}
+    for preview, first_seen, reporters in storage.community_sites(report_threshold, limit):
+        value = preview.lower().removeprefix("www.")
+        host = value.split("/", 1)[0]
+        if not value or _is_official(host) or value in SHORTENERS:
+            continue
+        # A page on a big platform (sites.google.com/view/…) is listed as that page, never the platform.
+        kind = "url" if "/" in value else "domain"
+        entry = entries.setdefault(value, {"indicator": value, "type": kind, "first_seen": first_seen,
+                                           "last_seen": first_seen, "detections": 0, "reporters": 0,
+                                           "source": "community"})
+        entry["reporters"] = reporters
+        entry["first_seen"] = min(entry["first_seen"], first_seen)
+        if entry["source"] == "auto":
+            entry["source"] = "both"
+    return sorted(entries.values(), key=lambda e: (e["last_seen"], e["detections"] + e["reporters"]), reverse=True)[:limit]
+
+
+def feed_text(entries: list[dict], updated: str) -> str:
+    """Plain domain list (one per line, `#` comments): the format DNS filters such as Pi-hole,
+    AdGuard and uBlock Origin import directly. Single pages on platforms are only in the JSON feed."""
+    domains = [e for e in entries if e["type"] == "domain"]
+    head = [
+        "# ScamGuard threat feed: fake and scam websites targeting people in Uzbekistan",
+        f"# Updated: {updated}",
+        f"# Domains: {len(domains)}",
+        "# Sources: detected by the ScamGuard bot (rules + link analysis + online reputation)",
+        "#          or reported by at least 2 different users.",
+        "# Automatic detections can be wrong. To report a false positive, open an issue on GitHub.",
+        "# Do not open these sites.",
+        "",
+    ]
+    return "\n".join(head + [e["indicator"] for e in domains]) + "\n"
+
+
 def build(storage, report_threshold: int) -> dict:
     today = date.today()
     series = storage.daily_series(TREND_DAYS)

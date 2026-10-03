@@ -46,7 +46,10 @@ RULES: list[Rule] = [
         r"karta (?:raqam|ma'lumot)\S* (?:\S+ ){0,3}?(?:yubor|kirit|ayt|jo'nat|yoz)(?:ing|ingiz|inglar)\b",
         r"(?:продиктуйте|назовите|отправьте|сообщите|введите) код", r"код из смс",
         r"(?:номер|данные) (?:вашей )?карты",
-        r"срок действия карты", r"(?:send|tell|share|give)(?: me)?(?: the| your)? (?:code|otp|pin)",
+        r"срок действия карты",
+        r"(?:send|tell|share|give|forward|read|dictate)(?: (?:me|us))?(?: (?:the|your|this|that))?"
+        r"(?: (?:sms|one[- ]time|verification|confirmation|security|login|\d[- ]digit))? (?:code|otp|pin|passcode)",
+        r"code (?:from|in) (?:the |your |this )?(?:sms|text|message)",
         r"verification code", r"card (?:number|details)",
     ), Reason(
         "SMS kod, karta raqami yoki CVV so'ralmoqda — hech qachon hech kimga bermang",
@@ -80,7 +83,8 @@ RULES: list[Rule] = [
         r"karta(?:ngiz)? (?:bloklan|to'xtatil|muzlatil)", r"hisob(?:ingiz)? (?:bloklan|to'xtatil)",
         r"shubhali (?:operatsiya|tranzaksiya)",
         r"карта заблокирован", r"(?:счёт|счет|аккаунт) заблокирован", r"подозрительн\w* (?:операци|транзакци)",
-        r"account (?:has been )?(?:suspended|blocked|locked)", r"suspicious (?:activity|transaction)",
+        r"(?:account|card) (?:has been |is |was )?(?:suspended|blocked|locked|frozen)",
+        r"suspicious (?:activity|transaction)",
     ), Reason(
         "Kartangiz yoki hisobingiz bloklangani haqida qo'rqitish",
         "Scares you that your card or account is blocked",
