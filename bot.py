@@ -52,7 +52,7 @@ from aiogram.types import (
 )
 
 import scamguard
-from scamguard import apk, blocklist, ocr, radar, reputation, semantic
+from scamguard import apk, blocklist, community, ocr, radar, reputation, semantic
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import APK_REASON, check_file
 from scamguard.reasons import Reason
@@ -75,6 +75,7 @@ RATE_LIMIT = (15, 60)  # max checks per user per N seconds
 MAX_CACHE = 2000
 
 storage = Storage()
+memory = community.CommunityMemory(storage)
 dp = Dispatcher()
 private = Router(name="private")
 groups = Router(name="groups")
@@ -295,16 +296,30 @@ def level_for(score: float) -> Level:
     return Level.DANGEROUS if score >= DANGEROUS_AT else Level.SUSPICIOUS if score >= SUSPICIOUS_AT else Level.SAFE
 
 
-def community_reasons(text: str, forward) -> list[Reason]:
-    """Warnings for indicators that enough different people have reported."""
+BLOCKLIST_WEIGHT = 0.8   # a site, number or account that enough people reported
+
+
+def community_reasons(text: str, forward) -> list[tuple[Reason, float]]:
+    """Warnings (with their weight) for indicators, and for messages like this one, that enough
+    different people have reported."""
     indicators = blocklist.extract(text, forward, {BOT_USERNAME.lower()})
-    reasons = []
+    hits = []
     for ind, n in storage.report_counts(indicators).items():
         if n >= blocklist.REPORT_THRESHOLD:
             key = f"hit_{ind.kind}"
-            reasons.append(Reason(t(key, "uz", n=n, preview=ind.preview), t(key, "en", n=n, preview=ind.preview),
-                                  t(key, "ru", n=n, preview=ind.preview)))
-    return reasons
+            hits.append((Reason(t(key, "uz", n=n, preview=ind.preview), t(key, "en", n=n, preview=ind.preview),
+                                t(key, "ru", n=n, preview=ind.preview)), BLOCKLIST_WEIGHT))
+    n = memory.reporters_of_similar(text)
+    if n >= blocklist.REPORT_THRESHOLD:
+        hits.append((Reason(t("hit_similar", "uz", n=n), t("hit_similar", "en", n=n), t("hit_similar", "ru", n=n)),
+                     community.COMMUNITY_WEIGHT))
+    return hits
+
+
+def with_community(score: float, hits: list[tuple[Reason, float]]) -> float:
+    for _, weight in hits:
+        score = 1 - (1 - score) * (1 - weight)
+    return score
 
 
 def evaluate_text(text: str) -> Result:
@@ -313,8 +328,8 @@ def evaluate_text(text: str) -> Result:
     reasons, score, level = list(verdict.reasons), verdict.score, verdict.level
     hits = community_reasons(text, None)
     if hits:
-        reasons = hits + reasons
-        score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
+        reasons = [r for r, _ in hits] + reasons
+        score = with_community(score, hits)
         level = max(level, level_for(score), key=LEVEL_ORDER.index)
     trust = verdict.trust if level == Level.SAFE else []
     signals = list(verdict.signals) + (["community"] if hits else [])
@@ -351,8 +366,8 @@ def evaluate(message: Message, extra_text: str = "", app: AppCheck | None = None
         score = max(score, 0.5)
     hits = community_reasons(text, forward)
     if hits:
-        reasons = hits + reasons
-        score = 1 - (1 - score) * (1 - 0.8) ** len(hits)
+        reasons = [r for r, _ in hits] + reasons
+        score = with_community(score, hits)
         level = max(level, level_for(score), key=LEVEL_ORDER.index)
     trust = verdict.trust if (verdict and level == Level.SAFE) else []
     signals = list(verdict.signals) if verdict else []
@@ -700,10 +715,14 @@ def record_report(p: Pending, reporter_id: int, lang: str) -> str | None:
     if not p.feedback_done and p.text:
         storage.add_feedback(p.text, 1, p.level, p.level != Level.SAFE.value)
         p.feedback_done = True
+    first_report = not p.reported
     p.reported = True
+    remembered = first_report and memory.add(p.text, reporter_id)
     indicators = blocklist.extract(p.text, p.forward, {BOT_USERNAME.lower()})
     if not indicators:
-        return t("report_none", lang)
+        if remembered:
+            return t("report_none", lang, threshold=blocklist.REPORT_THRESHOLD)
+        return t("report_none_plain", lang) if first_report else None
     if storage.add_reports(indicators, reporter_id) == 0:
         return None
     items = "\n".join(f"• {html.escape(i.preview)}" for i in indicators)
@@ -723,6 +742,8 @@ async def on_feedback(callback: CallbackQuery) -> None:
         label = int(predicted_scam if answer == "ok" else not predicted_scam)
         storage.add_feedback(p.text, label, p.level, answer == "ok")
         p.feedback_done = True
+        if label == 1 and not predicted_scam and not p.reported:   # "you said safe, but it's a scam"
+            memory.add(p.text, callback.from_user.id)
     await callback.answer(t("fb_thanks", lang))
     await _update_buttons(callback, key, p, lang)
 

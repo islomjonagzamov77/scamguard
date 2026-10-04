@@ -319,6 +319,11 @@ T: dict[str, dict[str, str]] = {
         "en": "🚩 <b>Thanks!</b> Reported:\n{items}\n\nOnce {threshold} different people report it, the bot will warn everyone else.",
     },
     "report_none": {
+        "uz": "🚩 Rahmat! Xabarda havola, telefon raqam yoki Telegram akkaunt topilmadi. Lekin AI xabarning ma'nosini eslab qoldi: {threshold} xil odam shunga o'xshash xabarni belgilasa, bot boshqalarni ogohlantiradi.",
+        "ru": "🚩 Спасибо! В сообщении нет ссылок, номеров или Telegram-аккаунтов. Но AI запомнил смысл сообщения: когда {threshold} разных человека отметят похожее, бот начнёт предупреждать остальных.",
+        "en": "🚩 Thanks! No links, phone numbers or Telegram accounts were found. But the AI remembered what the message means: once {threshold} different people report a similar one, the bot will warn everyone else.",
+    },
+    "report_none_plain": {
         "uz": "🚩 Rahmat! Xabarda havola, telefon raqam yoki Telegram akkaunt topilmadi, lekin u AI modelni o'qitish uchun saqlandi.",
         "ru": "🚩 Спасибо! В сообщении нет ссылок, номеров или Telegram-аккаунтов, но оно сохранено для обучения AI-модели.",
         "en": "🚩 Thanks! No links, phone numbers or Telegram accounts were found, but the message was saved to train the AI model.",
@@ -338,6 +343,11 @@ T: dict[str, dict[str, str]] = {
         "uz": "🚩 {n} foydalanuvchi {preview} raqamini firibgar deb belgilagan",
         "ru": "🚩 {n} пользователей отметили номер {preview} как мошеннический",
         "en": "🚩 {n} users reported the number {preview} as a scammer",
+    },
+    "hit_similar": {
+        "uz": "🚩 {n} foydalanuvchi deyarli xuddi shunday xabarni firibgarlik deb belgilagan (AI ma'nosini solishtirdi)",
+        "ru": "🚩 {n} пользователей отметили почти такое же сообщение как мошенничество (AI сравнил смысл)",
+        "en": "🚩 {n} users reported an almost identical message as a scam (the AI compared what they mean)",
     },
     "hit_tg": {
         "uz": "🚩 {n} foydalanuvchi {preview} Telegram akkauntini firibgar deb belgilagan",

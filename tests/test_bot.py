@@ -57,6 +57,7 @@ def env(tmp_path, monkeypatch):
     import bot as botmod
     botmod = importlib.reload(botmod)
     botmod.storage = st.Storage(tmp_path / "t.db")
+    botmod.memory = botmod.community.CommunityMemory(botmod.storage)
     botmod.BOT_USERNAME = "scamguard_test_bot"
     botmod.dp.include_routers(botmod.private, botmod.groups)
     session = FakeSession()
@@ -242,6 +243,31 @@ def test_report_needs_two_people_then_warns_everyone(env):
     assert "2 users reported the number +99890***33" in reply
     assert "🟡" in reply or "🔴" in reply
     assert botmod.storage.stats(2)["blocked"] >= 2
+
+
+@pytest.mark.skipif(not __import__("scamguard.semantic").semantic.encoder_available(),
+                    reason="needs the semantic encoder")
+def test_bot_learns_a_new_scam_wave_from_two_reports(env):
+    """No link, number or account to blocklist: the bot remembers what the message means."""
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    botmod.storage.set_lang(OTHER_USER.id, "en")
+    wave = "Salom! Jiyanim rasm tanlovida qatnashyapti, iltimos unga ovoz bering, telegram orqali kirasiz"
+    variant = "Assalomu alaykum! Singlim rasm tanlovida qatnashyapti, iltimos unga ovoz bering, telegram orqali kirish kerak"
+
+    feed({"message": msg(wave)})
+    press_report(feed, session, USER)
+    assert "remembered what the message means" in session.sent_texts()[-1]
+    assert "almost identical" not in feed({"message": msg(variant)})       # one person is not enough
+
+    feed({"message": msg(wave)})
+    press_report(feed, session, OTHER_USER)
+    reply = feed({"message": msg(variant)})
+    assert "2 users reported an almost identical message" in reply
+    assert "🟡" in reply or "🔴" in reply
+    assert "almost identical" not in feed({"message": msg("Salom, ertaga darsga kelasanmi?")})
+    texts = botmod.storage.db.execute("SELECT * FROM scam_vectors").fetchall()
+    assert "Jiyanim" not in str(texts) and "tanlov" not in str(texts)     # vectors only, never the text
 
 
 def test_numbers_are_not_stored_in_plain_text(env):
