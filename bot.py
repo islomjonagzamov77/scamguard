@@ -52,7 +52,7 @@ from aiogram.types import (
 )
 
 import scamguard
-from scamguard import apk, blocklist, ocr, radar, reputation
+from scamguard import apk, blocklist, ocr, radar, reputation, semantic
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import APK_REASON, check_file
 from scamguard.reasons import Reason
@@ -819,6 +819,11 @@ async def main() -> None:
             "   Open @BotFather, send /revoke (or /token), copy the NEWEST token and run again."
         )
     BOT_USERNAME = me.username
+    if semantic.available():   # load the transformer now, so the first user doesn't wait for it
+        await asyncio.to_thread(semantic.predict_proba, "salom")
+        log.info("Semantic AI model loaded (%s)", semantic.HF_REPO)
+    else:
+        log.warning("Semantic AI model not available: using the char n-gram model only")
     await setup_profile(bot)
     dp.include_routers(private, groups)
     # Public Scam Radar website on $PORT (Railway: Settings -> Networking -> Generate Domain)

@@ -9,3 +9,4 @@ data/scamguard.db
 data/.salt
 data/feedback_export.csv
 .DS_Store
+models/e5-small/

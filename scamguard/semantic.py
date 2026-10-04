@@ -6,14 +6,17 @@ uses multilingual-e5-small, a transformer pretrained on text in ~100 languages i
 and Russian, to turn a message into a 384-number vector that captures what it *means*.
 Messages with similar meaning get similar vectors, whatever the wording or script.
 
-On top of the vectors:
-  * a logistic regression trained on our labeled messages gives a scam probability, and
-  * a nearest-example search names the closest known scam ("similar to known fake-grant
-    scams"), so the verdict stays explainable.
+On top of the vectors, a logistic regression trained on our labeled messages gives a scam
+probability (model.py averages it with the character n-gram model). The same vectors let the
+community teach the bot new scams without retraining (see community.py).
 
-The encoder runs with onnxruntime on the CPU (no PyTorch), quantized to 8-bit: ~120 MB on disk,
-a few milliseconds per message. Download it with `python -m scamguard.semantic download`.
-If the files are missing the bot simply runs without this layer.
+The encoder runs with onnxruntime on the CPU (no PyTorch): 16-bit weights (235 MB on disk, same
+vectors as the 32-bit original), ~400 MB of RAM, about 10 ms per message. The 8-bit version is
+smaller but measurably worse on unseen scam types (see RESULTS.md). Tokens come from the original
+SentencePiece model (5 MB) rather than the 17 MB tokenizer.json, which alone needs ~290 MB of RAM;
+both give identical tokens (checked on all 561 training and eval messages).
+Download it with `python -m scamguard.semantic download`. If the files are missing the bot simply
+runs without this layer.
 """
 
 from __future__ import annotations
@@ -21,7 +24,6 @@ from __future__ import annotations
 import os
 import sys
 import urllib.request
-from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
@@ -31,10 +33,16 @@ ROOT = Path(__file__).resolve().parent.parent
 ENCODER_DIR = Path(os.getenv("SCAMGUARD_ENCODER_DIR", ROOT / "models" / "e5-small"))
 CLASSIFIER_PATH = Path(os.getenv("SCAMGUARD_SEMANTIC", ROOT / "models" / "semantic.joblib"))
 
-HF_REPO = "Xenova/multilingual-e5-small"
-HF_REVISION = "main"
-ENCODER_FILES = {"onnx/model_quantized.onnx": "model.onnx", "tokenizer.json": "tokenizer.json"}
+HF_REPO = "intfloat/multilingual-e5-small"
+# Each file is pinned to a commit so every build gets exactly the same model.
+ENCODER_FILES = {
+    "model.onnx": "https://huggingface.co/Xenova/multilingual-e5-small/resolve/"
+                  "761b726dd34fb83930e26aab4e9ac3899aa1fa78/onnx/model_fp16.onnx",
+    "sentencepiece.bpe.model": "https://huggingface.co/intfloat/multilingual-e5-small/resolve/"
+                               "614241f622f53c4eeff9890bdc4f31cfecc418b3/sentencepiece.bpe.model",
+}
 MAX_TOKENS = 256
+BOS, PAD, EOS, UNK = 0, 1, 2, 3     # XLM-RoBERTa special tokens
 
 
 class Encoder:
@@ -42,25 +50,28 @@ class Encoder:
 
     def __init__(self, model_dir: Path = ENCODER_DIR):
         import onnxruntime as ort
-        from tokenizers import Tokenizer
+        import sentencepiece
 
-        self.tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
-        self.tokenizer.enable_truncation(MAX_TOKENS)
-        pad_id = self.tokenizer.token_to_id("<pad>")
-        self.tokenizer.enable_padding(pad_id=pad_id, pad_token="<pad>")
+        self.sp = sentencepiece.SentencePieceProcessor(model_file=str(model_dir / "sentencepiece.bpe.model"))
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = int(os.getenv("SCAMGUARD_ENCODER_THREADS", "2"))
         opts.log_severity_level = 3
         self.session = ort.InferenceSession(str(model_dir / "model.onnx"), opts, providers=["CPUExecutionProvider"])
         self.inputs = {i.name for i in self.session.get_inputs()}
 
+    def token_ids(self, text: str) -> list[int]:
+        """XLM-RoBERTa ids: SentencePiece ids shifted by one (fairseq layout), wrapped in <s> ... </s>."""
+        ids = [i + 1 if i else UNK for i in self.sp.encode(text)]
+        return [BOS] + ids[:MAX_TOKENS - 2] + [EOS]
+
     def encode(self, texts: list[str], batch_size: int = 32) -> np.ndarray:
         out = []
         for start in range(0, len(texts), batch_size):
             # e5 expects a "query: " prefix for classification and similarity tasks.
-            batch = self.tokenizer.encode_batch([f"query: {prepare(t)}" for t in texts[start:start + batch_size]])
-            ids = np.array([b.ids for b in batch], dtype=np.int64)
-            mask = np.array([b.attention_mask for b in batch], dtype=np.int64)
+            batch = [self.token_ids(f"query: {prepare(t)}") for t in texts[start:start + batch_size]]
+            width = max(len(b) for b in batch)
+            ids = np.array([b + [PAD] * (width - len(b)) for b in batch], dtype=np.int64)
+            mask = np.array([[1] * len(b) + [0] * (width - len(b)) for b in batch], dtype=np.int64)
             feed = {"input_ids": ids, "attention_mask": mask}
             if "token_type_ids" in self.inputs:
                 feed["token_type_ids"] = np.zeros_like(ids)
@@ -102,18 +113,6 @@ def embed(text: str) -> np.ndarray | None:
 
 # ---------- the trained part (built by train.py) ----------
 
-@dataclass
-class SemanticResult:
-    proba: float                  # probability that the message is a scam
-    similar_category: str | None  # category of the most similar known scam, if close enough
-    similarity: float             # cosine similarity to that scam (0..1)
-
-
-# Two messages this close (cosine) are paraphrases of one scheme. Chosen on the training data:
-# between different scam types similarity rarely goes above it. See train.py.
-SIMILAR_AT = 0.90
-
-
 @lru_cache(maxsize=1)
 def _load_classifier():
     if not CLASSIFIER_PATH.exists():
@@ -127,48 +126,37 @@ def available() -> bool:
     return encoder_available() and _load_classifier() is not None
 
 
-def predict(text: str) -> SemanticResult | None:
-    bundle = _load_classifier()
-    vec = embed(text) if bundle is not None else None
+def predict_proba(text: str) -> float | None:
+    """Probability that `text` is a scam, or None without the encoder or the trained classifier."""
+    clf = _load_classifier()
+    vec = embed(text) if clf is not None else None
     if vec is None:
         return None
-    proba = float(bundle["clf"].predict_proba(vec[None, :])[0][1])
-    category, similarity = None, 0.0
-    scams = bundle["scam_vectors"]
-    if len(scams):
-        sims = scams.astype(np.float32) @ vec
-        best = int(sims.argmax())
-        similarity = float(sims[best])
-        if similarity >= SIMILAR_AT:
-            category = bundle["scam_categories"][best]
-    return SemanticResult(proba, category, similarity)
+    return float(clf.predict_proba(vec[None, :].astype(np.float64))[0][1])
 
 
-def build_bundle(vectors: np.ndarray, labels: np.ndarray, categories: list[str], c: float = 1.0) -> dict:
-    """Fit the classifier on encoder vectors and keep the known scams for nearest-example search."""
+def make_classifier(c: float = 0.1):
+    """Logistic regression on standardized vectors. e5 vectors all point in nearly the same direction
+    (any two messages are ~0.8 similar), so the signal is in small differences per dimension;
+    standardizing them first matters a lot: on held-out scam types it raised the share caught
+    at 5% false alarms from 26% to 60% (measured with the 8-bit model)."""
     from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
 
-    clf = LogisticRegression(max_iter=5000, class_weight="balanced", C=c).fit(vectors, labels)
-    scam = labels == 1
-    return {
-        "clf": clf,
-        "scam_vectors": vectors[scam].astype(np.float16),
-        "scam_categories": [cat for cat, s in zip(categories, scam) if s],
-        "encoder": HF_REPO,
-    }
+    return make_pipeline(StandardScaler(), LogisticRegression(C=c, max_iter=5000, class_weight="balanced"))
 
 
 # ---------- download ----------
 
-def download(target: Path = ENCODER_DIR, repo: str = HF_REPO, revision: str = HF_REVISION) -> None:
-    """Fetch the quantized ONNX encoder and its tokenizer from Hugging Face."""
+def download(target: Path = ENCODER_DIR) -> None:
+    """Fetch the ONNX encoder and its SentencePiece model from Hugging Face."""
     target.mkdir(parents=True, exist_ok=True)
-    for remote, local in ENCODER_FILES.items():
+    for local, url in ENCODER_FILES.items():
         dest = target / local
         if dest.exists() and dest.stat().st_size > 0:
             print(f"  {local}: already there")
             continue
-        url = f"https://huggingface.co/{repo}/resolve/{revision}/{remote}"
         print(f"  {local} <- {url}")
         tmp = dest.with_suffix(dest.suffix + ".part")
         urllib.request.urlretrieve(url, tmp)
@@ -176,10 +164,9 @@ def download(target: Path = ENCODER_DIR, repo: str = HF_REPO, revision: str = HF
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["download"]:
-        download()
-        enc = Encoder()
-        v = enc.encode(["Kartangiz bloklandi, SMS kodni yuboring", "Карта заблокирована, отправьте код из СМС"])
+    if sys.argv[1:] != ["download"]:
+        sys.exit("usage: python -m scamguard.semantic download")
+    download()
+    if __package__:   # run as part of the package (not as a lone file in the Docker build): try it out
+        v = Encoder().encode(["Kartangiz bloklandi, SMS kodni yuboring", "Карта заблокирована, отправьте код из СМС"])
         print(f"OK: encoder works, similarity of an Uzbek and a Russian paraphrase = {float(v[0] @ v[1]):.2f}")
-    else:
-        print("usage: python -m scamguard.semantic download")

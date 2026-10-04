@@ -90,10 +90,12 @@ _WARNING = _r(
     r"\bhech qachon\b", r"\b(?:so'ramaydi|talab qilmaydi|olinmaydi|so'ramaymiz)\b",
     r"\b(?:ehtiyot|ogoh|hushyor) bo'ling", r"firibgar", r"aldamchi",
     r"\b(?:desa|deyishsa|deyilsa)\b", r"\bdegan (?:xabar|qo'ng'iroq|sms)", r"\bdeb (?:yozishsa|qo'ng'iroq qilishsa)",
-    r"не (?:переходите|отправляйте|открывайте|устанавливайте)", r"осторожно",
+    r"не (?:переходите|отправляйте|открывайте|устанавливайте|переводите|платите|оплачивайте|вводите|"
+    r"скачивайте|нажимайте|верьте|ведитесь)\b", r"осторожно",
     r"мошенни", r"никогда не (?:просит|запрашива|спрашива)",
-    r"\bnever (?:share|send|give)", r"\b(?:do not|don't) (?:share|send|open|click)", r"\bbeware\b",
-    r"\bscammers?\b", r"\bnever asks?\b",
+    r"это (?:кража|обман|развод|схема|ловушка)",                         # naming a scheme as fraud
+    r"\bnever (?:share|send|give)", r"\b(?:do not|don't) (?:share|send|open|click|pay|transfer)", r"\bbeware\b",
+    r"\bscammers?\b", r"\bnever asks?\b", r"\b(?:this|that|it) is (?:a )?(?:scam|fraud|trap)\b",
 )
 # "don't tell" is advice only when it protects a secret ("kodni hech kimga aytmang").
 # On its own it is a scammer asking for secrecy ("hech kimga aytmang, joy kam", "don't tell your family").
