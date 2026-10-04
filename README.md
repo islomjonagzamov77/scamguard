@@ -178,7 +178,8 @@ python bot.py
 1. Push the repo to GitHub (`.env` is git-ignored, so your token never leaves your Mac).
 2. On [railway.com](https://railway.com): **New Project → Deploy from GitHub repo** → pick this repo.
    Railway builds the `Dockerfile`: it installs dependencies, downloads the multilingual transformer, trains both AI
-   models and runs the tests. A broken commit never goes live. The bot needs ~600 MB of RAM with the transformer.
+   models and runs the tests. A broken commit never goes live. The bot needs ~700 MB of RAM with the transformer (~180 MB without). To run without it, set the variable
+   `SCAMGUARD_SEMANTIC_OFF=1`: the bot falls back to the char n-gram model.
 3. **Variables:** add `BOT_TOKEN`. Optional: `GOOGLE_SAFE_BROWSING_KEY` and `VIRUSTOTAL_API_KEY` (see `.env.example`).
 4. **Volume:** add one mounted at `/data`, so stats, language settings and feedback survive redeploys.
 5. Stop any local copy of the bot. Telegram allows only one running instance per token.
