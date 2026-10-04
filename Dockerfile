@@ -16,9 +16,16 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# Pretrained multilingual encoder for the semantic AI model (~240 MB, pinned version). It gets its own
+# layer before the code is copied, so a code change doesn't download it again. Outside /app so the
+# chown below doesn't duplicate it.
+ENV SCAMGUARD_ENCODER_DIR=/opt/e5-small
+COPY scamguard/semantic.py /tmp/semantic.py
+RUN python /tmp/semantic.py download && rm /tmp/semantic.py
+
 COPY . .
 
-# Train the baseline model during the build (models/*.joblib is not committed),
+# Train both AI models during the build (models/*.joblib is not committed),
 # then run the tests so a broken commit never gets deployed.
 RUN python train.py && SCAMGUARD_DATA_DIR=/tmp/sg-test python -m pytest -q && rm -rf /tmp/sg-test
 

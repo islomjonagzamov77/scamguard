@@ -7,7 +7,11 @@ Usage:
 Every CSV needs `text` and `label` columns (1 = scam, 0 = legit).
 The script prints a cross-validated comparison of:
     rules only  vs  ML model only  vs  full analyzer (rules + links + model)
-and saves the model fitted on all data to models/baseline.joblib.
+and saves the models fitted on all data:
+    models/baseline.joblib   char n-gram model
+    models/semantic.joblib   classifier on multilingual-e5 vectors (only if the encoder is downloaded:
+                             python -m scamguard.semantic download)
+For the harder test, on scam types the model never saw, run benchmark.py.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 
+from scamguard import model, semantic
 from scamguard.analyzer import Level, analyze
 from scamguard.textnorm import normalize, to_latin
 
@@ -66,11 +71,21 @@ def main() -> None:
     y = df["label"].to_numpy()
     print(f"Loaded {len(df)} messages ({y.sum()} scam / {len(y) - y.sum()} legit) from {len(data_files)} file(s)")
 
+    encoder = semantic.get_encoder()
+    vectors = encoder.encode(texts) if encoder is not None else None
+    if vectors is None:
+        print("Semantic encoder not found, training the char n-gram model only "
+              "(get it with: python -m scamguard.semantic download)")
+
     model_proba = np.zeros(len(y))
     skf = StratifiedKFold(n_splits=args.folds, shuffle=True, random_state=42)
     for train_idx, test_idx in skf.split(x, y):
         pipe = build_pipeline().fit([x[i] for i in train_idx], y[train_idx])
-        model_proba[test_idx] = pipe.predict_proba([x[i] for i in test_idx])[:, 1]
+        char = pipe.predict_proba([x[i] for i in test_idx])[:, 1]
+        meaning = None
+        if vectors is not None:
+            meaning = semantic.make_classifier().fit(vectors[train_idx], y[train_idx]).predict_proba(vectors[test_idx])[:, 1]
+        model_proba[test_idx] = model.combine(char, meaning)
 
     rules_only = np.array([analyze(t, use_model=False).level != Level.SAFE for t in texts])
     combined_v = [analyze(t, model_proba=float(p)) for t, p in zip(texts, model_proba)]
@@ -94,6 +109,9 @@ def main() -> None:
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(final, args.out)
     print(f"\nSaved model trained on all data to {args.out}")
+    if vectors is not None:
+        joblib.dump(semantic.make_classifier().fit(vectors, y), semantic.CLASSIFIER_PATH)
+        print(f"Saved semantic classifier trained on all data to {semantic.CLASSIFIER_PATH}")
 
 
 if __name__ == "__main__":

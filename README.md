@@ -23,6 +23,10 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 
 - 🌐 **3 languages**: Uzbek, Russian, English. Auto-detected, switchable with /lang
 - 🔍 **Explained verdicts** for messages, links (including links hidden behind text) and files
+- 🧠 **Multilingual AI that reads meaning**: a pretrained transformer (`multilingual-e5-small`) next to a spelling-based
+  model, so scams worded in new ways are caught too. Measured on scam types it never saw (`benchmark.py`)
+- 🤝 **Learns new scam waves from users**: when 2 different people report messages that mean almost the same thing,
+  near-copies are flagged for everyone, with no retraining. Only meaning vectors are stored, never the text
 - 📷 **Reads screenshots**: OCR in Uzbek (Latin + Cyrillic), Russian and English, with adaptive thresholding so light- and dark-mode chat screenshots both work. Images are processed in memory only
 - 🚩 **Community blocklist**: users report scam sites, phone numbers and Telegram accounts. After 2 *different* people report the same one, everyone who meets it is warned. The threshold protects innocent people from a single false report. Numbers and accounts are stored only as salted SHA-256 fingerprints
 - 💬 **Inline mode**: type `@scamguard_uzbbot <link>` in *any* chat to get a verdict card; tapping it posts the verdict, signed by the bot (a built-in growth loop)
@@ -115,7 +119,9 @@ shorteners are never listed.
 message ─┬─► intent.py     what does the sender want? (request / warning / story / quote)
          ├─► rules.py      multilingual scam patterns (explainable)
          ├─► links.py      lookalike domains, shorteners, risky TLDs, .apk links, punycode, IPs
-         └─► model.py      AI classifier (char n-gram TF-IDF + logistic regression)
+         └─► model.py      AI: average of two classifiers
+                 ├─ char n-gram TF-IDF + logistic regression (spellings, both scripts)
+                 └─ semantic.py  multilingual-e5 transformer vectors + logistic regression (meaning)
                  │
                  ▼
           analyzer.py      offline verdict: score, level, reasons
@@ -124,9 +130,20 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 .apk file ──────►└─► apk.py          what the app may do, read from its manifest in memory
 ```
 
-- **The AI model** may raise 🟡 on its own once it is 75% sure. It reads the same words as the rules, so it is not
-  counted as independent proof: 🔴 always needs the rules or links on their own. On scam schemes it never saw,
-  it raised the share of scams caught from 60% to 72% with no extra false alarms (`data/eval/RESULTS.md`).
+- **The AI model** averages two classifiers. One learns the *spellings* scammers use (character n-grams). The other
+  uses `multilingual-e5-small`, a transformer pretrained on ~100 languages including Uzbek and Russian, which reads
+  what a message *means*, so it also recognises scams worded unlike anything in the training data. It runs on the
+  CPU with onnxruntime (no PyTorch), ~10 ms per message.
+  On scam types held out from training it catches 72% at 5% false alarms (char n-grams alone: 52%, `benchmark.py`).
+  On the held-out test half the bot now catches 80% of scams on schemes nobody studied (rules alone 60%, the old
+  model 72%) with no extra false alarms (`data/eval/RESULTS.md`).
+  The AI may raise 🟡 on its own once it is 75% sure. It reads the same text as the rules, so it is not counted as
+  independent proof: 🔴 always needs the rules or links on their own.
+
+- **Learns new scam waves from users** (`community.py`): scams come in waves of one template with the name, amount
+  or link changed. When 2 different people report messages that mean almost the same thing, everyone who checks a
+  near-copy gets a 🟡, minutes after the wave started, with no retraining. Only the message's meaning vector is
+  stored, never its text. This also covers scams with no link, number or account to blocklist.
 
 - **Intent first** (`intent.py`): before scoring, the bot decides what the sender wants from the reader.
   It can be a **request** ("SMS kodni yuboring"), a **warning** ("SMS kodni hech kimga aytmang"), a **report**
@@ -138,7 +155,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 - **Lookalike detection** catches `c1ick.uz`, `paymе.uz` (with a Cyrillic "е"), `0lx-uz.com`, and `click-uz-bonus.xyz`, using homoglyph folding and edit distance against a list of official domains.
 - **Hidden links**: the bot also checks URLs hidden behind Telegram text links and inline buttons.
 - **The model only adds evidence.** It can raise a score but never overrules a rule, and every verdict stays explainable.
-- **Privacy**: messages are not stored. When a user presses a feedback button, the text is saved with card numbers, phone numbers and emails masked, and no user IDs. `.apk` files are read in memory and never installed, run or saved.
+- **Privacy**: messages are not stored. When a user presses a feedback button, the text is saved with card numbers, phone numbers and emails masked, and no user IDs. For reported messages the community memory keeps only a meaning vector, not the text. `.apk` files are read in memory and never installed, run or saved.
 
 ## Quick start
 
@@ -146,8 +163,10 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 232 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
-python train.py                    # train the model and print the evaluation
+python -m pytest                   # 247 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
+python -m scamguard.semantic download   # the multilingual transformer (~240 MB, optional)
+python train.py                    # train both AI models and print the evaluation
+python benchmark.py                # how well each AI model handles scam types it never saw
 python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 
 cp .env.example .env               # paste your token from @BotFather
@@ -158,7 +177,9 @@ python bot.py
 
 1. Push the repo to GitHub (`.env` is git-ignored, so your token never leaves your Mac).
 2. On [railway.com](https://railway.com): **New Project → Deploy from GitHub repo** → pick this repo.
-   Railway builds the `Dockerfile`: it installs dependencies, trains the model and runs the tests. A broken commit never goes live.
+   Railway builds the `Dockerfile`: it installs dependencies, downloads the multilingual transformer, trains both AI
+   models and runs the tests. A broken commit never goes live. The bot needs ~700 MB of RAM with the transformer (~180 MB without). To run without it, set the variable
+   `SCAMGUARD_SEMANTIC_OFF=1`: the bot falls back to the char n-gram model.
 3. **Variables:** add `BOT_TOKEN`. Optional: `GOOGLE_SAFE_BROWSING_KEY` and `VIRUSTOTAL_API_KEY` (see `.env.example`).
 4. **Volume:** add one mounted at `/data`, so stats, language settings and feedback survive redeploys.
 5. Stop any local copy of the bot. Telegram allows only one running instance per token.
@@ -172,7 +193,9 @@ Every `git push` then redeploys automatically.
 | `scamguard/rules.py` | Scam patterns: secret codes, prizes, urgency, blocked account, bank or government impersonation, advance fees, OLX scams, easy money, apk, "relative in trouble" |
 | `scamguard/links.py` | Offline URL risk analysis |
 | `scamguard/textnorm.py` | Apostrophe unification, Cyrillic→Latin conversion, private-data masking |
-| `scamguard/model.py` | Loads the trained classifier |
+| `scamguard/model.py` | The AI verdict: average of the char n-gram and semantic classifiers |
+| `scamguard/semantic.py` | multilingual-e5 transformer (ONNX, CPU): message → meaning vector → scam probability |
+| `scamguard/community.py` | Community memory: warns about near-copies of messages 2+ people reported |
 | `scamguard/analyzer.py` | Combines everything into a `Verdict` |
 | `scamguard/web/server.py` | Scam Radar website, message-checker API, threat feed, rate limiting, security headers |
 | `scamguard/radar.py` | Privacy-safe aggregates for the radar and the threat feed |
@@ -180,7 +203,8 @@ Every `git push` then redeploys automatically.
 | `scamguard/reputation.py` | Online checks: domain age (RDAP), Google Safe Browsing, VirusTotal; cached, time-limited |
 | `collect.py` | Turns real messages, screenshots and bot feedback into masked, labeled data (80% training / 20% holdout) |
 | `bot.py` | Telegram bot (aiogram 3) with feedback buttons |
-| `train.py` | Cross-validated comparison: rules vs. model vs. full system |
+| `train.py` | Trains both AI models; cross-validated comparison: rules vs. model vs. full system |
+| `benchmark.py` | Each scam type held out in turn: how well each AI model handles schemes it never saw |
 | `data/seed_dataset.csv` | 99 **hand-written example** messages used to bootstrap training |
 | `data/synthetic_claude.csv` | 228 training messages **written by Claude (an AI)** to cover more scam schemes (`tools/make_synthetic.py`) |
 
@@ -245,7 +269,10 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
 **Phase 3: better AI (weeks 8–14)**
 - [x] Make the AI model count: 228 more varied training messages and a threshold chosen with scam types held out.
   Scams caught on unseen schemes: 60% → 72%, false alarms unchanged (`data/eval/RESULTS.md`)
-- [ ] Fine-tune `xlm-roberta-base` (or a smaller multilingual model) and compare it with the baseline and the rules
+- [x] Pretrained multilingual transformer (`multilingual-e5-small`) as a second AI model, compared on scam types held
+  out from training. Unseen scams caught at 5% false alarms: 52% → 72%; test half: 72% → 80% (`data/eval/RESULTS.md`)
+- [x] Community memory: learn new scam waves from 2 users' reports, without retraining
+- [ ] Fine-tune the transformer itself once there are 1,000+ real messages (with ~400 imagined ones it would overfit)
 - [ ] Compare against a zero-shot LLM
 - [ ] Error analysis: which scam types and languages fail, and why
 

@@ -5,6 +5,8 @@ Privacy by design:
     only so the bot remembers each person's language and counts unique users.
   * Checked messages are never stored. Feedback text is saved only when a user
     presses a feedback button, and card/phone/email data is masked first.
+  * For messages reported as scams, the community memory keeps only the semantic
+    model's vector of the masked text (see community.py), not the text.
 """
 
 from __future__ import annotations
@@ -50,6 +52,9 @@ class Storage:
             CREATE TABLE IF NOT EXISTS flagged_domains (
                 domain TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
                 hits INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS scam_vectors (
+                vec BLOB NOT NULL, reporter TEXT NOT NULL, ts TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS feedback (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +189,18 @@ class Storage:
         return self.db.execute(
             "SELECT COUNT(*) FROM (SELECT ind FROM reports GROUP BY ind HAVING COUNT(*) >= ?)", (threshold,)
         ).fetchone()[0]
+
+    # ---- community memory (vectors of reported messages, see community.py) ----
+    def add_scam_vector(self, vec: bytes, reporter_id: int) -> str:
+        """Store one person's report as a vector. Returns the reporter's fingerprint."""
+        reporter = self._fp(reporter_id)
+        self.db.execute("INSERT INTO scam_vectors (vec, reporter, ts) VALUES (?, ?, ?)",
+                        (vec, reporter, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+        self.db.commit()
+        return reporter
+
+    def scam_vectors(self, since: str) -> list[tuple[bytes, str]]:
+        return self.db.execute("SELECT vec, reporter FROM scam_vectors WHERE ts >= ?", (since,)).fetchall()
 
     # ---- feedback ----
     def add_feedback(self, text: str, label: int, predicted: str, user_agreed: bool) -> None:
