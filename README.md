@@ -40,7 +40,9 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 - 📎 **File checks by name and type**: .exe, double extensions like `photo.jpg.apk`, macro documents, archives. Only .apk files are downloaded (into memory)
 - 🆘 **"I got scammed" guide**: block the card, secure Telegram, keep evidence, call 102
 - 📚 **Scam-types guide**: 8 common Uzbek scams with red flags
-- 👥 **Group protection**: stays silent on normal messages and warns only on dangerous ones; `/check` as a reply scans any message
+- 👥 **Guards groups and channel comments**: as an admin it **removes** scam messages and dangerous files (.apk, .exe,
+  double extensions) and posts a short notice with the reason. Admins are never moderated, edited messages are checked
+  too, and admins can undo a mistake with one tap (see [Protect a group or channel](#protect-a-group-or-channel))
 - 📊 **Anonymous statistics**: no message text or Telegram IDs are stored (salted-hash fingerprints only)
 - ✅❌ **Opt-in feedback** saved masked to SQLite; export it for retraining with `Storage().export_feedback()`
 - 🛡 **Rate limiting** and a global error handler
@@ -163,7 +165,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 247 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
+python -m pytest                   # 262 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
 python -m scamguard.semantic download   # the multilingual transformer (~240 MB, optional)
 python train.py                    # train both AI models and print the evaluation
 python benchmark.py                # how well each AI model handles scam types it never saw
@@ -172,6 +174,31 @@ python -m scamguard.cli --lang en "Siz iPhone yutib oldingiz! click-bonus.xyz"
 cp .env.example .env               # paste your token from @BotFather
 python bot.py
 ```
+
+## Protect a group or channel
+
+1. Add the bot to the group and make it an **admin** with the **Delete messages** right. With **Ban users** as well, it
+   can mute repeat offenders.
+2. **Channels**: only admins post in a channel, so spam arrives in the **comments**. Comments live in the channel's linked
+   discussion group: add the bot there (channel → Edit → Discussion).
+3. Admins type `/settings` in the group:
+
+| Setting | Default | What it does |
+|---|---|---|
+| Mode | remove dangerous | 🔴 messages are deleted. *Warn only* replies instead; *Off* stays silent |
+| Strict | off | also delete 🟡 suspicious messages (archives, macro documents, softer scam signs) |
+| Mute | off | after 3 removed messages in 24 hours, the sender can't write for 24 hours |
+| Language | the language of whoever added the bot | language of the bot's messages in the group |
+
+What it never does:
+- moderate admins, anonymous admins, or posts from the group's own channel;
+- delete a "can't tell" money request (🟡 with a question) — even in strict mode;
+- leave a tappable scam link in its notice (domains are shown as `example[.]xyz`).
+
+Each removal posts one notice with the reason and a **↩️ Mistake** button. When an admin taps it, the bot puts the message
+back and saves it as a false alarm for retraining. Notices disappear after 5 minutes (`SCAMGUARD_NOTICE_TTL`), and the
+removed message is forgotten with them. A spam wave gets one notice per 20 seconds, not one per message.
+Without the Delete messages right, the bot warns instead and reminds the admins once a day.
 
 ## Deploy 24/7 on Railway
 
@@ -282,6 +309,8 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
   checks, with a hand-written tolerant parser instead of `androguard` (real trojans corrupt their zip and manifest to
   crash tools). Files are parsed only, **never installed or run**
 - [x] Group mode: the bot warns a group chat when someone posts a scam link
+- [x] Group guard: removes scams and dangerous files in groups and channel comments, with undo, strict mode,
+  muting of repeat offenders and edited-message checks (`scamguard/guard.py`)
 - [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
 - [x] Threat feed of detected fake sites (`/api/v1/feed.txt` for DNS filters, `/api/v1/feed.json` for banks and CERTs)
 - [x] Check a message on the website and in the Telegram Mini App; public `POST /api/v1/check` API

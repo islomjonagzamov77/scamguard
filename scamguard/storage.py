@@ -53,6 +53,11 @@ class Storage:
                 domain TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
                 hits INTEGER DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS group_settings (
+                chat_id INTEGER PRIMARY KEY, mode TEXT NOT NULL DEFAULT 'delete',
+                strict INTEGER NOT NULL DEFAULT 0, mute INTEGER NOT NULL DEFAULT 0,
+                lang TEXT NOT NULL DEFAULT 'uz', deleted INTEGER NOT NULL DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS scam_vectors (
                 vec BLOB NOT NULL, reporter TEXT NOT NULL, ts TEXT NOT NULL
             );
@@ -189,6 +194,30 @@ class Storage:
         return self.db.execute(
             "SELECT COUNT(*) FROM (SELECT ind FROM reports GROUP BY ind HAVING COUNT(*) >= ?)", (threshold,)
         ).fetchone()[0]
+
+    # ---- groups (see guard.py) ----
+    def group_settings(self, chat_id: int):
+        from .guard import GroupSettings
+
+        row = self.db.execute("SELECT mode, strict, mute, lang, deleted FROM group_settings WHERE chat_id = ?",
+                              (chat_id,)).fetchone()
+        if row is None:
+            return GroupSettings()
+        mode, strict, mute, lang, deleted = row
+        return GroupSettings(mode, bool(strict), bool(mute), lang, deleted)
+
+    def save_group_settings(self, chat_id: int, settings) -> None:
+        self.db.execute(
+            "INSERT INTO group_settings (chat_id, mode, strict, mute, lang, deleted) VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(chat_id) DO UPDATE SET mode = excluded.mode, strict = excluded.strict, "
+            "mute = excluded.mute, lang = excluded.lang",
+            (chat_id, settings.mode, int(settings.strict), int(settings.mute), settings.lang, settings.deleted))
+        self.db.commit()
+
+    def count_group_deletion(self, chat_id: int) -> None:
+        self.db.execute("INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)", (chat_id,))
+        self.db.execute("UPDATE group_settings SET deleted = deleted + 1 WHERE chat_id = ?", (chat_id,))
+        self.db.commit()
 
     # ---- community memory (vectors of reported messages, see community.py) ----
     def add_scam_vector(self, vec: bytes, reporter_id: int) -> str:
