@@ -796,7 +796,9 @@ def settings_view(settings: guard.GroupSettings, info: ChatInfo) -> tuple[str, I
              mute=onoff(settings.mute), deleted=settings.deleted, rights=rights)
     b = InlineKeyboardButton
     markup = InlineKeyboardMarkup(inline_keyboard=[
-        [b(text=f"{t('g_btn_mode', lang)}: {t(f'g_mode_{settings.mode}', lang)}", callback_data="gs:mode")],
+        # one button per mode, the active one ticked: a single cycling button was easy to leave on the wrong mode
+        *[[b(text=("✅ " if m == settings.mode else "") + t(f"g_mode_{m}", lang), callback_data=f"gs:mode:{m}")]
+          for m in guard.MODES],
         [b(text=f"{t('g_btn_strict', lang)}: {onoff(settings.strict)}", callback_data="gs:strict"),
          b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data="gs:mute")],
         [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data="gs:lang")],
@@ -846,8 +848,10 @@ async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
     if not await is_group_admin(bot, chat_id, callback.from_user):
         await callback.answer(t("g_admins_only", settings.lang), show_alert=True)
         return
-    what = callback.data.split(":", 1)[1]
-    if what == "mode":
+    _, what, value = (callback.data.split(":", 2) + [""])[:3]      # "gs:mode:warn", "gs:strict"
+    if what == "mode" and value in guard.MODES:
+        settings.mode = value
+    elif what == "mode":                # a panel posted before the mode buttons existed: next mode
         settings.mode = guard.MODES[(guard.MODES.index(settings.mode) + 1) % len(guard.MODES)]
     elif what == "strict":
         settings.strict = not settings.strict

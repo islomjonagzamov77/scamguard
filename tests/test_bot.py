@@ -656,8 +656,29 @@ def test_settings_are_for_admins_only(env):
     panel = group_msg("panel", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
     feed({"callback_query": CallbackQuery(id="s1", from_user=OWNER, chat_instance="x", data="gs:strict", message=panel)})
     assert botmod.storage.group_settings(GROUP.id).strict is True
-    feed({"callback_query": CallbackQuery(id="s2", from_user=USER, chat_instance="x", data="gs:mode", message=panel)})
+    feed({"callback_query": CallbackQuery(id="s2", from_user=USER, chat_instance="x", data="gs:mode:off", message=panel)})
     assert botmod.storage.group_settings(GROUP.id).mode == "delete"        # a member can't change it
+
+
+def test_settings_mode_buttons_pick_a_mode_and_tick_it(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    feed({"message": group_msg("/settings", user=OWNER)})
+    rows = calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard
+    modes = [row[0] for row in rows[:3]]
+    assert [b.callback_data for b in modes] == ["gs:mode:delete", "gs:mode:warn", "gs:mode:off"]
+    assert modes[0].text.startswith("✅") and not modes[1].text.startswith("✅")
+    panel = group_msg("panel", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
+    for _ in range(2):                                   # pressing the same mode twice keeps it
+        feed({"callback_query": CallbackQuery(id=str(next(_uid)), from_user=OWNER, chat_instance="x",
+                                              data="gs:mode:warn", message=panel)})
+    assert botmod.storage.group_settings(GROUP.id).mode == "warn"
+    edited = calls_named(session, "EditMessageText")[-1].reply_markup.inline_keyboard
+    assert edited[1][0].text.startswith("✅")
+    feed({"callback_query": CallbackQuery(id=str(next(_uid)), from_user=OWNER, chat_instance="x",
+                                          data="gs:mode", message=panel)})       # an old panel's button
+    assert botmod.storage.group_settings(GROUP.id).mode == "off"
 
 
 def test_a_spam_wave_gets_one_notice_not_fifty(env):
