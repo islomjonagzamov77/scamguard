@@ -258,15 +258,83 @@ T: dict[str, dict[str, str]] = {
     # ---------- groups ----------
     "group_hello": {
         "uz": "🛡 Salom! Men bu guruhni firibgarlardan himoya qilaman.\n\n"
-              "Xavfli havola yoki fayl yuborilsa, ogohlantiraman. Har bir xabarni ko'rishim uchun meni "
-              "<b>admin</b> qiling. Istalgan xabarga javoban /check yozib tekshirish ham mumkin.",
+              "Firibgar havolalar va xavfli fayllarni (.apk, .exe) <b>o'chiraman</b> va sababini yozaman. "
+              "Buning uchun meni <b>«Xabarlarni o'chirish»</b> huquqi bilan <b>admin</b> qiling. "
+              "Kanal izohlarini himoya qilish uchun meni kanalga ulangan muhokama guruhiga qo'shing.\n\n"
+              "Adminlar: /settings. Istalgan xabarga javoban /check — tekshirish.",
         "ru": "🛡 Привет! Я защищаю эту группу от мошенников.\n\n"
-              "Предупрежу, если кто-то отправит опасную ссылку или файл. Чтобы я видел все сообщения, "
-              "сделайте меня <b>админом</b>. Также можно ответить на любое сообщение командой /check.",
+              "Я <b>удаляю</b> мошеннические ссылки и опасные файлы (.apk, .exe) и пишу причину. "
+              "Для этого сделайте меня <b>админом</b> с правом <b>«Удаление сообщений»</b>. "
+              "Чтобы защитить комментарии канала, добавьте меня в привязанную группу обсуждения.\n\n"
+              "Админам: /settings. Ответьте /check на любое сообщение, чтобы проверить его.",
         "en": "🛡 Hi! I'll protect this group from scammers.\n\n"
-              "I'll warn you when someone posts a dangerous link or file. Make me an <b>admin</b> so I can "
-              "see every message. You can also reply to any message with /check.",
+              "I <b>delete</b> scam links and dangerous files (.apk, .exe) and say why. "
+              "For that, make me an <b>admin</b> with the <b>Delete messages</b> right. "
+              "To protect a channel's comments, add me to its linked discussion group.\n\n"
+              "Admins: /settings. Reply /check to any message to check it.",
     },
+    "g_deleted": {
+        "uz": "🛡 {name} xabarini o'chirdim: {reason}",
+        "ru": "🛡 Удалил сообщение от {name}: {reason}",
+        "en": "🛡 Removed a message from {name}: {reason}",
+    },
+    "g_undo_btn": {"uz": "↩️ Xato (adminlar uchun)", "ru": "↩️ Ошибка (для админов)", "en": "↩️ Mistake (admins)"},
+    "g_restored": {
+        "uz": "↩️ Admin xavfsiz deb belgiladi. {name} xabari:",
+        "ru": "↩️ Админ отметил как безопасное. Сообщение от {name}:",
+        "en": "↩️ An admin marked this as safe. Message from {name}:",
+    },
+    "g_undo_gone": {
+        "uz": "Bu xabar endi xotirada yo'q", "ru": "Этого сообщения уже нет в памяти",
+        "en": "This message is no longer in memory",
+    },
+    "g_admins_only": {
+        "uz": "Buni faqat guruh adminlari qila oladi", "ru": "Это могут только админы группы",
+        "en": "Only group admins can do this",
+    },
+    "g_muted": {
+        "uz": "🔇 {name} {n} ta xavfli xabardan keyin 24 soatga yozishdan cheklandi.",
+        "ru": "🔇 {name} не может писать 24 часа после {n} опасных сообщений.",
+        "en": "🔇 {name} is muted for 24 hours after {n} dangerous messages.",
+    },
+    "g_need_rights": {
+        "uz": "💡 Meni «Xabarlarni o'chirish» huquqi bilan admin qilsangiz, bunday xabarlarni o'zim o'chiraman.",
+        "ru": "💡 Сделайте меня админом с правом «Удаление сообщений», и я буду удалять такие сообщения сам.",
+        "en": "💡 Make me an admin with the Delete messages right and I'll remove messages like this myself.",
+    },
+    "g_settings": {
+        "uz": "🛡 <b>ScamGuard sozlamalari</b>\n\n"
+              "Rejim: <b>{mode}</b>\nQat'iy (🟡 shubhalilarni ham o'chirish): <b>{strict}</b>\n"
+              "Takrorlovchilarni 24 soatga cheklash: <b>{mute}</b>\nShu paytgacha o'chirildi: <b>{deleted}</b>\n\n{rights}",
+        "ru": "🛡 <b>Настройки ScamGuard</b>\n\n"
+              "Режим: <b>{mode}</b>\nСтрогий (удалять и 🟡 подозрительные): <b>{strict}</b>\n"
+              "Блокировать повторных нарушителей на 24 часа: <b>{mute}</b>\nУдалено всего: <b>{deleted}</b>\n\n{rights}",
+        "en": "🛡 <b>ScamGuard settings</b>\n\n"
+              "Mode: <b>{mode}</b>\nStrict (also remove 🟡 suspicious): <b>{strict}</b>\n"
+              "Mute repeat offenders for 24 hours: <b>{mute}</b>\nRemoved so far: <b>{deleted}</b>\n\n{rights}",
+    },
+    "g_mode_delete": {"uz": "🗑 xavflilarni o'chirish", "ru": "🗑 удалять опасные", "en": "🗑 remove dangerous"},
+    "g_mode_warn": {"uz": "⚠️ faqat ogohlantirish", "ru": "⚠️ только предупреждать", "en": "⚠️ warn only"},
+    "g_mode_off": {"uz": "⏸ o'chiq", "ru": "⏸ выключен", "en": "⏸ off"},
+    "g_on": {"uz": "yoqilgan", "ru": "вкл", "en": "on"},
+    "g_off": {"uz": "o'chiq", "ru": "выкл", "en": "off"},
+    "g_can_delete": {
+        "uz": "✅ Xabarlarni o'chira olaman.", "ru": "✅ Я могу удалять сообщения.", "en": "✅ I can delete messages.",
+    },
+    "g_cannot_delete": {
+        "uz": "⚠️ Xabarlarni o'chira olmayman: meni «Xabarlarni o'chirish» huquqi bilan admin qiling.",
+        "ru": "⚠️ Я не могу удалять сообщения: сделайте меня админом с правом «Удаление сообщений».",
+        "en": "⚠️ I can't delete messages: make me an admin with the Delete messages right.",
+    },
+    "g_cannot_mute": {
+        "uz": "⚠️ Cheklash uchun «Foydalanuvchilarni bloklash» huquqi ham kerak.",
+        "ru": "⚠️ Для блокировки нужно ещё право «Блокировка пользователей».",
+        "en": "⚠️ To mute, I also need the Ban users right.",
+    },
+    "g_btn_mode": {"uz": "Rejim", "ru": "Режим", "en": "Mode"},
+    "g_btn_strict": {"uz": "Qat'iy", "ru": "Строгий", "en": "Strict"},
+    "g_btn_mute": {"uz": "Cheklash", "ru": "Блокировка", "en": "Mute"},
+    "g_btn_lang": {"uz": "🌐 Til", "ru": "🌐 Язык", "en": "🌐 Language"},
     "group_warn": {
         "uz": "⚠️ <b>Diqqat! Bu xabar firibgarlikka o'xshaydi.</b>",
         "ru": "⚠️ <b>Внимание! Это сообщение похоже на мошенничество.</b>",
@@ -401,6 +469,8 @@ T: dict[str, dict[str, str]] = {
     "cmd_stats": {"uz": "Statistika", "ru": "Статистика", "en": "Statistics"},
     "cmd_lang": {"uz": "Tilni o'zgartirish", "ru": "Сменить язык", "en": "Change language"},
     "cmd_privacy": {"uz": "Maxfiylik", "ru": "Конфиденциальность", "en": "Privacy"},
+    "cmd_settings": {"uz": "Guruh himoyasi sozlamalari (adminlar)", "ru": "Настройки защиты группы (админы)",
+                     "en": "Group protection settings (admins)"},
     "cmd_report": {"uz": "Firibgarni belgilash (javob sifatida)", "ru": "Пожаловаться на мошенника (ответом)",
                    "en": "Report a scammer (as a reply)"},
     "cmd_check": {"uz": "Guruhda xabarni tekshirish (javob sifatida)", "ru": "Проверить сообщение в группе (ответом)",

@@ -20,9 +20,12 @@ report the same one, everyone who meets it gets a warning.
 Inline mode: in any chat, "@bot <link or text>" shows a verdict card; tapping it
 posts the verdict into the chat, signed by the bot (a built-in growth loop).
 
-Groups: silently scans every message (when the bot is an admin or privacy
-mode is off) and warns only about dangerous ones. /check and /report as a
-reply work on a specific message.
+Groups and channel comments (scamguard/guard.py): as an admin with the "Delete messages" right,
+the bot removes dangerous messages (scam links, .apk/.exe files, blocklisted numbers) and posts a
+short notice with the reason; admins can undo a mistake from that notice. Admins and the group's
+own channel are never touched, edited messages are checked too, and admins pick the mode, strict
+mode and muting of repeat offenders with /settings. Without the right it only warns.
+/check and /report as a reply work on a specific message.
 
 Run:  python bot.py      (token in .env as BOT_TOKEN=...)
 """
@@ -30,6 +33,7 @@ Run:  python bot.py      (token in .env as BOT_TOKEN=...)
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import html
 import logging
 import os
@@ -43,16 +47,16 @@ from urllib.parse import quote
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction, ChatType, MessageEntityType, ParseMode
-from aiogram.exceptions import TelegramBadRequest, TelegramNotFound, TelegramUnauthorizedError
-from aiogram.filters import JOIN_TRANSITION, ChatMemberUpdatedFilter, Command, CommandStart
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramNotFound, TelegramUnauthorizedError
+from aiogram.filters import Command, CommandStart
 from aiogram.types import (
-    BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatMemberUpdated,
+    BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatMemberUpdated, ChatPermissions,
     ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, MenuButtonWebApp, WebAppInfo,
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
 
 import scamguard
-from scamguard import apk, blocklist, community, ocr, radar, reputation, semantic
+from scamguard import apk, blocklist, community, guard, ocr, radar, reputation, semantic
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import APK_REASON, check_file
 from scamguard.reasons import Reason
@@ -81,6 +85,7 @@ private = Router(name="private")
 groups = Router(name="groups")
 private.message.filter(F.chat.type == ChatType.PRIVATE)
 groups.message.filter(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
+groups.edited_message.filter(F.chat.type.in_({ChatType.GROUP, ChatType.SUPERGROUP}))
 
 
 
@@ -598,27 +603,307 @@ async def group_help(message: Message) -> None:
     await message.reply(t("group_hello", lang_of(message.from_user)))
 
 
-@groups.message(F.text | F.caption | F.document)
-async def group_scan(message: Message) -> None:
-    """Silent guard: speak up only when a message is dangerous."""
-    if message.from_user and message.from_user.is_bot:
+ADMIN_CACHE_S = 600          # how long the admin list and the bot's own rights are trusted
+NOTICE_TTL_S = int(os.getenv("SCAMGUARD_NOTICE_TTL", "300"))   # removal notices disappear after this (0 = keep)
+RIGHTS_HINT_S = 24 * 3600    # without the delete right, remind admins at most once a day per group
+NOTICE_GAP_S = 20            # a spam wave gets one notice per group per 20 s, not one per message
+
+
+@dataclass
+class ChatInfo:
+    admins: set = field(default_factory=set)
+    can_delete: bool = False
+    can_restrict: bool = False
+    linked: int | None = None     # the channel whose comments this group holds
+    at: float = 0.0
+
+
+@dataclass
+class Removed:
+    """A removed message, kept in memory only so an admin can undo the removal."""
+    chat_id: int
+    name: str
+    sender_id: int
+    text: str
+    level: str
+    file: tuple[str, str] | None = None   # ("document" | "photo" | "video", file_id)
+
+
+_chats: dict[int, ChatInfo] = {}
+_removed: OrderedDict[str, Removed] = OrderedDict()
+_rights_hint: dict[int, float] = {}
+_last_notice: dict[int, float] = {}
+_tasks: set = set()
+offenses = guard.Offenses()
+
+
+async def chat_info(bot: Bot, chat_id: int) -> ChatInfo:
+    cached = _chats.get(chat_id)
+    if cached and time.monotonic() - cached.at < ADMIN_CACHE_S:
+        return cached
+    info = ChatInfo(at=time.monotonic())
+    try:
+        for member in await bot.get_chat_administrators(chat_id):
+            info.admins.add(member.user.id)
+            if member.user.id == bot.id:
+                info.can_delete = bool(getattr(member, "can_delete_messages", False))
+                info.can_restrict = bool(getattr(member, "can_restrict_members", False))
+        info.linked = (await bot.get_chat(chat_id)).linked_chat_id
+    except Exception as e:   # no rights, or Telegram is slow: act as a plain member until next time
+        log.warning("Could not read the admins of %s: %s", chat_id, e)
+    _chats[chat_id] = info
+    return info
+
+
+def is_exempt(message: Message, info: ChatInfo) -> bool:
+    """Admins, anonymous admins and the group's own channel are never moderated."""
+    if message.is_automatic_forward:           # a channel post copied into its comments group
+        return True
+    if message.sender_chat is not None:         # sent "as" a group or channel
+        return message.sender_chat.id in (message.chat.id, info.linked)
+    user = message.from_user
+    return user is None or user.is_bot or user.id in info.admins
+
+
+def sender_of(message: Message) -> tuple[int, str]:
+    if message.sender_chat is not None:
+        return message.sender_chat.id, message.sender_chat.title or "?"
+    return message.from_user.id, message.from_user.full_name
+
+
+_HOST = re.compile(r"\b((?:[\w-]+\.)+[a-z]{2,})\b", re.IGNORECASE)
+
+
+def defang_text(text: str) -> str:
+    """uzum-sovga.xyz -> uzum-sovga[.]xyz, so a notice never carries a tappable scam link."""
+    return _HOST.sub(lambda m: m.group(1).replace(".", "[.]"), text)
+
+
+def delete_later(bot: Bot, chat_id: int, message_id: int, delay: int = NOTICE_TTL_S, forget: str = "") -> None:
+    """Delete the bot's notice after `delay` seconds; its undo button goes with it, so the removed
+    message it could restore (`forget`) is dropped from memory too."""
+    if delay <= 0:
         return
-    result = evaluate(message)
-    if result is None:
+
+    async def run() -> None:
+        await asyncio.sleep(delay)
+        _removed.pop(forget, None)
+        with contextlib.suppress(TelegramAPIError):
+            await bot.delete_message(chat_id, message_id)
+
+    task = asyncio.create_task(run())
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
+def attached_file(message: Message) -> tuple[str, str] | None:
+    if message.document:
+        return "document", message.document.file_id
+    if message.photo:
+        return "photo", message.photo[-1].file_id
+    if message.video:
+        return "video", message.video.file_id
+    return None
+
+
+async def remove(bot: Bot, message: Message, result: Result, settings: guard.GroupSettings, info: ChatInfo) -> bool:
+    try:
+        await message.delete()
+    except TelegramAPIError as e:              # rights were taken away since the last check
+        log.warning("Could not delete a message in %s: %s", message.chat.id, e)
+        _chats.pop(message.chat.id, None)
+        return False
+    storage.count_group_deletion(message.chat.id)
+    sender_id, name = sender_of(message)
+    lang = settings.lang
+    now = time.monotonic()
+    if now - _last_notice.get(message.chat.id, -NOTICE_GAP_S) >= NOTICE_GAP_S:
+        _last_notice[message.chat.id] = now
+        key = secrets.token_urlsafe(8)
+        _removed[key] = Removed(message.chat.id, name, sender_id, message.text or message.caption or "",
+                                result.level.value, attached_file(message))
+        while len(_removed) > MAX_CACHE:
+            _removed.popitem(last=False)
+        reason = result.reasons[0].text(lang) if result.reasons else re.sub(r"<[^>]+>", "", t("v_dangerous", lang))
+        undo = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t("g_undo_btn", lang),
+                                                                           callback_data=f"gu:{key}")]])
+        notice = await bot.send_message(
+            message.chat.id, t("g_deleted", lang, name=html.escape(name), reason=html.escape(defang_text(reason))),
+            reply_markup=undo, disable_web_page_preview=True)
+        delete_later(bot, message.chat.id, notice.message_id, forget=key)
+
+    if settings.mute and info.can_restrict and offenses.add(message.chat.id, sender_id) >= guard.OFFENSES_TO_MUTE:
+        await mute(bot, message, name, lang)
+    return True
+
+
+async def mute(bot: Bot, message: Message, name: str, lang: str) -> None:
+    sender_id, _ = sender_of(message)
+    try:
+        if message.sender_chat is not None:     # a channel identity can't be muted, only banned from posting
+            await bot.ban_chat_sender_chat(message.chat.id, sender_id)
+        else:
+            await bot.restrict_chat_member(message.chat.id, sender_id, ChatPermissions(can_send_messages=False),
+                                           until_date=int(time.time()) + guard.MUTE_S)
+    except TelegramAPIError as e:
+        log.warning("Could not mute %s in %s: %s", sender_id, message.chat.id, e)
         return
-    record(result)
-    if result.level != Level.DANGEROUS:
-        return
-    lang = lang_of(message.from_user)
+    offenses.clear(message.chat.id, sender_id)
+    note = await bot.send_message(message.chat.id, t("g_muted", lang, name=html.escape(name), n=guard.OFFENSES_TO_MUTE))
+    delete_later(bot, message.chat.id, note.message_id)
+
+
+async def warn(bot: Bot, message: Message, result: Result, settings: guard.GroupSettings, info: ChatInfo) -> None:
+    lang = settings.lang
     lines = [t("group_warn", lang)] + [f"• {html.escape(r.text(lang))}" for r in result.reasons[:3]]
     lines.append(f"\n💡 {t('group_warn_tail', lang)}")
+    now = time.time()
+    if settings.mode == "delete" and not info.can_delete and now - _rights_hint.get(message.chat.id, 0) > RIGHTS_HINT_S:
+        _rights_hint[message.chat.id] = now
+        lines.append(t("g_need_rights", lang))
     await message.reply("\n".join(lines), disable_web_page_preview=True)
 
 
-@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
-async def on_added_to_group(event: ChatMemberUpdated) -> None:
-    if event.chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
-        await event.bot.send_message(event.chat.id, t("group_hello", lang_of(event.from_user)))
+async def guard_message(message: Message, bot: Bot, edited: bool = False) -> None:
+    """Check a group message; remove it, warn, or stay silent (see guard.py)."""
+    result = evaluate(message)
+    if result is None:
+        return
+    if not edited:
+        record(result)
+    settings = storage.group_settings(message.chat.id)
+    if guard.decide(result.level, result.signals, settings, can_delete=True) == guard.NONE:
+        return                                   # nothing to do: no admin lookup for normal messages
+    info = await chat_info(bot, message.chat.id)
+    if is_exempt(message, info):
+        return
+    action = guard.decide(result.level, result.signals, settings, info.can_delete)
+    if action == guard.DELETE and await remove(bot, message, result, settings, info):
+        return
+    if action != guard.NONE and result.level == Level.DANGEROUS:
+        await warn(bot, message, result, settings, info)
+
+
+# ---- admin settings ----
+
+def settings_view(settings: guard.GroupSettings, info: ChatInfo) -> tuple[str, InlineKeyboardMarkup]:
+    lang = settings.lang
+    onoff = lambda v: t("g_on" if v else "g_off", lang)  # noqa: E731
+    rights = t("g_can_delete" if info.can_delete else "g_cannot_delete", lang)
+    if settings.mute and info.can_delete and not info.can_restrict:
+        rights += "\n" + t("g_cannot_mute", lang)
+    text = t("g_settings", lang, mode=t(f"g_mode_{settings.mode}", lang), strict=onoff(settings.strict),
+             mute=onoff(settings.mute), deleted=settings.deleted, rights=rights)
+    b = InlineKeyboardButton
+    markup = InlineKeyboardMarkup(inline_keyboard=[
+        [b(text=f"{t('g_btn_mode', lang)}: {t(f'g_mode_{settings.mode}', lang)}", callback_data="gs:mode")],
+        [b(text=f"{t('g_btn_strict', lang)}: {onoff(settings.strict)}", callback_data="gs:strict"),
+         b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data="gs:mute")],
+        [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data="gs:lang")],
+    ])
+    return text, markup
+
+
+async def is_group_admin(bot: Bot, chat_id: int, user) -> bool:
+    if user is None:
+        return False
+    info = await chat_info(bot, chat_id)
+    if user.id in info.admins:
+        return True
+    _chats.pop(chat_id, None)                 # maybe just promoted: look again once
+    return user.id in (await chat_info(bot, chat_id)).admins
+
+
+@groups.message(Command("settings"))
+async def group_settings_cmd(message: Message, bot: Bot) -> None:
+    settings = storage.group_settings(message.chat.id)
+    anonymous_admin = message.sender_chat is not None and message.sender_chat.id == message.chat.id
+    if not anonymous_admin and not await is_group_admin(bot, message.chat.id, message.from_user):
+        await message.reply(t("g_admins_only", settings.lang))
+        return
+    text, markup = settings_view(settings, await chat_info(bot, message.chat.id))
+    await message.reply(text, reply_markup=markup)
+
+
+# The catch-all scanners come after every group command, so commands reach their own handlers.
+@groups.message(F.text | F.caption | F.document)
+async def group_scan(message: Message, bot: Bot) -> None:
+    await guard_message(message, bot)
+
+
+@groups.edited_message(F.text | F.caption)
+async def group_edit(message: Message, bot: Bot) -> None:
+    """Spammers post something harmless and edit a link in later."""
+    await guard_message(message, bot, edited=True)
+
+
+@dp.callback_query(F.data.startswith("gs:"))
+async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
+    if callback.message is None:
+        return
+    chat_id = callback.message.chat.id
+    settings = storage.group_settings(chat_id)
+    if not await is_group_admin(bot, chat_id, callback.from_user):
+        await callback.answer(t("g_admins_only", settings.lang), show_alert=True)
+        return
+    what = callback.data.split(":", 1)[1]
+    if what == "mode":
+        settings.mode = guard.MODES[(guard.MODES.index(settings.mode) + 1) % len(guard.MODES)]
+    elif what == "strict":
+        settings.strict = not settings.strict
+    elif what == "mute":
+        settings.mute = not settings.mute
+    elif what == "lang":
+        settings.lang = LANGS[(LANGS.index(settings.lang) + 1) % len(LANGS)]
+    storage.save_group_settings(chat_id, settings)
+    await callback.answer()
+    text, markup = settings_view(settings, await chat_info(bot, chat_id))
+    with contextlib.suppress(TelegramBadRequest):
+        await callback.message.edit_text(text, reply_markup=markup)
+
+
+@dp.callback_query(F.data.startswith("gu:"))
+async def on_group_undo(callback: CallbackQuery, bot: Bot) -> None:
+    """An admin says a removal was a mistake: put the message back and learn from it."""
+    if callback.message is None:
+        return
+    chat_id = callback.message.chat.id
+    lang = storage.group_settings(chat_id).lang
+    if not await is_group_admin(bot, chat_id, callback.from_user):
+        await callback.answer(t("g_admins_only", lang), show_alert=True)
+        return
+    item = _removed.pop(callback.data.split(":", 1)[1], None)
+    if item is None or item.chat_id != chat_id:
+        await callback.answer(t("g_undo_gone", lang), show_alert=True)
+        return
+    head = t("g_restored", lang, name=html.escape(item.name))
+    body = f"{head}\n\n{html.escape(item.text)}" if item.text else head
+    if item.file:
+        kind, file_id = item.file
+        send = {"document": bot.send_document, "photo": bot.send_photo, "video": bot.send_video}[kind]
+        await send(chat_id, file_id, caption=body[:1024])
+    else:
+        await bot.send_message(chat_id, body[:4096], disable_web_page_preview=True)
+    if item.text:
+        storage.add_feedback(item.text, 0, item.level, False)   # a false alarm: training data for the model
+    offenses.clear(chat_id, item.sender_id)
+    await callback.answer()
+    with contextlib.suppress(TelegramAPIError):
+        await callback.message.delete()
+
+
+@dp.my_chat_member()
+async def on_bot_status(event: ChatMemberUpdated) -> None:
+    """Added to a group, promoted or demoted: forget the cached rights, greet on joining."""
+    _chats.pop(event.chat.id, None)
+    if event.chat.type not in (ChatType.GROUP, ChatType.SUPERGROUP):
+        return
+    gone = ("left", "kicked")
+    if event.old_chat_member.status in gone and event.new_chat_member.status not in gone:
+        settings = storage.group_settings(event.chat.id)
+        settings.lang = lang_of(event.from_user)    # the person who added the bot picks the language
+        storage.save_group_settings(event.chat.id, settings)
+        await event.bot.send_message(event.chat.id, t("group_hello", settings.lang))
 
 
 # ======================= inline mode =======================
@@ -788,7 +1073,7 @@ async def setup_profile(bot: Bot) -> None:
                 scope=BotCommandScopeDefault(), language_code=code,
             )
             await bot.set_my_commands(
-                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "help")],
+                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "settings", "help")],
                 scope=BotCommandScopeAllGroupChats(), language_code=code,
             )
             # The bio is shown in Uzbek to everyone, whatever language their Telegram app uses.

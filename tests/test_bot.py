@@ -7,8 +7,9 @@ from datetime import datetime
 import pytest
 from aiogram import Bot
 from aiogram.client.session.base import BaseSession
-from aiogram.methods import GetMe, TelegramMethod
-from aiogram.types import CallbackQuery, Chat, Document, Message, Update, User
+from aiogram.methods import GetChat, GetChatAdministrators, GetMe, TelegramMethod
+from aiogram.types import (CallbackQuery, Chat, ChatFullInfo, ChatMemberAdministrator, ChatMemberOwner, Document,
+                           Message, Update, User)
 
 
 class FakeSession(BaseSession):
@@ -17,11 +18,21 @@ class FakeSession(BaseSession):
     def __init__(self):
         super().__init__()
         self.calls: list[TelegramMethod] = []
+        self.admins: list = []          # what getChatAdministrators returns (see make_admins)
+        self.linked_chat_id = None
 
     async def make_request(self, bot, method, timeout=None):
         self.calls.append(method)
         if isinstance(method, GetMe):
             return User(id=1, is_bot=True, first_name="ScamGuard", username="scamguard_test_bot")
+        if isinstance(method, GetChatAdministrators):
+            return self.admins
+        if isinstance(method, GetChat):
+            return ChatFullInfo(id=method.chat_id, type="supergroup", accent_color_id=0, max_reaction_count=11,
+                                accepted_gift_types={"unlimited_gifts": False, "limited_gifts": False,
+                                                     "unique_gifts": False, "premium_subscription": False,
+                                                     "gifts_from_channels": False},
+                                linked_chat_id=self.linked_chat_id)
         name = type(method).__name__
         if name.startswith("Send") or name.startswith("Edit"):
             return Message(message_id=999, date=datetime.now(), chat=Chat(id=getattr(method, "chat_id", 1) or 1,
@@ -496,3 +507,164 @@ def test_brand_new_site_is_flagged_online(env, monkeypatch):
     botmod.storage.set_lang(42, "en")
     reply = feed({"message": msg("Do'konimiz saytini ko'ring: https://mening-dokonim.uz")})
     assert "🟡" in reply and "2 day" in reply
+
+
+# ---------------- group guard: removing scams ----------------
+OWNER = User(id=1000, is_bot=False, first_name="Owner", language_code="en")
+BOT_ID = 123456                          # from the fake token "123456:AAA..."
+SCAM_LINK = "Tabriklaymiz! iPhone yutdingiz, 24 soat ichida click-uz-bonus.xyz ga kiring"
+
+
+def make_admins(session, can_delete=True, can_restrict=False):
+    rights = dict(can_be_edited=False, is_anonymous=False, can_manage_chat=True, can_manage_video_chats=False,
+                  can_promote_members=False, can_change_info=False, can_invite_users=True, can_post_stories=False,
+                  can_edit_stories=False, can_delete_stories=False, can_send_welcome_messages=False)
+    bot_user = User(id=BOT_ID, is_bot=True, first_name="ScamGuard")
+    session.admins = [ChatMemberOwner(user=OWNER, is_anonymous=False),
+                      ChatMemberAdministrator(user=bot_user, can_delete_messages=can_delete,
+                                              can_restrict_members=can_restrict, **rights)]
+
+
+def group_msg(text=None, user=USER, document=None, **extra):
+    return Message(message_id=next(_uid), date=datetime.now(), chat=GROUP, from_user=user, text=text,
+                   document=document, **extra)
+
+
+def calls_named(session, name):
+    return [c for c in session.calls if type(c).__name__ == name]
+
+
+def english_group(botmod):
+    settings = botmod.storage.group_settings(GROUP.id)
+    settings.lang = "en"
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    return settings
+
+
+def test_group_removes_scam_and_explains(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    feed({"message": group_msg("Salom hammaga, ertaga dars bormi?")})
+    assert not calls_named(session, "DeleteMessage")                    # normal chat is left alone
+    notice = feed({"message": group_msg(SCAM_LINK)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+    assert "Removed a message from Islom" in notice
+    assert "click-uz-bonus.xyz" not in notice                            # never a tappable scam link
+    assert calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0].callback_data.startswith("gu:")
+    assert botmod.storage.group_settings(GROUP.id).deleted == 1
+
+
+def test_group_removes_dangerous_files(env):
+    botmod, session, feed = env
+    make_admins(session)
+    doc = Document(file_id="f1", file_unique_id="u1", file_name="rasm_2026.jpg.apk")
+    feed({"message": group_msg(document=doc)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_group_never_touches_admins_or_its_channel(env):
+    botmod, session, feed = env
+    make_admins(session)
+    channel = Chat(id=-200, type="channel", title="Our channel")
+    session.linked_chat_id = channel.id
+    feed({"message": group_msg(SCAM_LINK, user=OWNER)})
+    feed({"message": group_msg(SCAM_LINK, sender_chat=channel, is_automatic_forward=True,
+                               user=User(id=777000, is_bot=False, first_name="Telegram"))})
+    feed({"message": group_msg(SCAM_LINK, sender_chat=GROUP,              # anonymous admin
+                               user=User(id=1087968824, is_bot=True, first_name="Group"))})
+    assert not calls_named(session, "DeleteMessage")
+
+
+def test_group_removes_scams_posted_as_another_channel(env):
+    botmod, session, feed = env
+    make_admins(session)
+    spam_channel = Chat(id=-300, type="channel", title="Free iPhones")
+    feed({"message": group_msg(SCAM_LINK, sender_chat=spam_channel,
+                               user=User(id=136817688, is_bot=True, first_name="Channel"))})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_group_keeps_suspicious_unless_strict(env):
+    botmod, session, feed = env
+    make_admins(session)
+    archive = Document(file_id="f2", file_unique_id="u2", file_name="photos.zip")    # 🟡: may hide an .apk
+    feed({"message": group_msg(document=archive)})
+    assert not calls_named(session, "DeleteMessage")
+    settings = english_group(botmod)
+    settings.strict = True
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    feed({"message": group_msg(document=archive)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_group_checks_edited_messages(env):
+    botmod, session, feed = env
+    make_admins(session)
+    feed({"edited_message": group_msg(SCAM_LINK, edit_date=int(datetime.now().timestamp()))})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_group_without_delete_right_warns_and_asks_for_it(env):
+    botmod, session, feed = env
+    make_admins(session, can_delete=False)
+    english_group(botmod)
+    reply = feed({"message": group_msg(SCAM_LINK)})
+    assert not calls_named(session, "DeleteMessage")
+    assert "Warning" in reply and "Delete messages" in reply
+    assert "Delete messages" not in feed({"message": group_msg(SCAM_LINK)})   # the hint comes once a day
+
+
+def test_admin_can_undo_a_removal(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    feed({"message": group_msg(SCAM_LINK)})
+    data = calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0].callback_data
+    notice = group_msg("notice", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
+
+    feed({"callback_query": CallbackQuery(id="u1", from_user=USER, chat_instance="x", data=data, message=notice)})
+    assert calls_named(session, "AnswerCallbackQuery")[-1].text == "Only group admins can do this"
+
+    restored = feed({"callback_query": CallbackQuery(id="u2", from_user=OWNER, chat_instance="x", data=data,
+                                                     message=notice)})
+    assert "marked this as safe" in restored and "click-uz-bonus.xyz" in restored
+    assert botmod.storage.db.execute("SELECT label FROM feedback").fetchone()[0] == 0   # learned: false alarm
+
+
+def test_repeat_offender_is_muted_when_enabled(env):
+    botmod, session, feed = env
+    make_admins(session, can_restrict=True)
+    settings = english_group(botmod)
+    settings.mute = True
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    for _ in range(3):
+        feed({"message": group_msg(SCAM_LINK)})
+    restrict = calls_named(session, "RestrictChatMember")
+    assert len(restrict) == 1 and restrict[0].user_id == USER.id
+    assert restrict[0].permissions.can_send_messages is False
+    assert "muted for 24 hours" in session.sent_texts()[-1]
+
+
+def test_settings_are_for_admins_only(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    assert "Only group admins" in feed({"message": group_msg("/settings")})
+    text = feed({"message": group_msg("/settings", user=OWNER)})
+    assert "ScamGuard settings" in text and "I can delete messages" in text
+    panel = group_msg("panel", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
+    feed({"callback_query": CallbackQuery(id="s1", from_user=OWNER, chat_instance="x", data="gs:strict", message=panel)})
+    assert botmod.storage.group_settings(GROUP.id).strict is True
+    feed({"callback_query": CallbackQuery(id="s2", from_user=USER, chat_instance="x", data="gs:mode", message=panel)})
+    assert botmod.storage.group_settings(GROUP.id).mode == "delete"        # a member can't change it
+
+
+def test_a_spam_wave_gets_one_notice_not_fifty(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    for _ in range(5):
+        feed({"message": group_msg(SCAM_LINK)})
+    assert len(calls_named(session, "DeleteMessage")) == 5               # every scam is removed
+    assert sum("Removed a message" in t for t in session.sent_texts()) == 1
