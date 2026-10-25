@@ -7,6 +7,8 @@ Privacy by design:
     presses a feedback button, and card/phone/email data is masked first.
   * For messages reported as scams, the community memory keeps only the semantic
     model's vector of the masked text (see community.py), not the text.
+  * The group log keeps, for 30 days, when a message was removed, the sender's display
+    name and the reason, so a group's admins can review removals. Never the message text.
 """
 
 from __future__ import annotations
@@ -58,6 +60,9 @@ class Storage:
                 strict INTEGER NOT NULL DEFAULT 0, mute INTEGER NOT NULL DEFAULT 0,
                 lang TEXT NOT NULL DEFAULT 'uz', deleted INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS group_log (
+                chat_id INTEGER NOT NULL, ts TEXT NOT NULL, sender TEXT NOT NULL, reason TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS scam_vectors (
                 vec BLOB NOT NULL, reporter TEXT NOT NULL, ts TEXT NOT NULL
             );
@@ -67,6 +72,10 @@ class Storage:
                 user_agreed INTEGER NOT NULL, ts TEXT NOT NULL
             );
         """)
+        try:   # columns added after the first release: older databases get them here
+            self.db.execute("ALTER TABLE group_settings ADD COLUMN test INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass   # already there
         self.db.commit()
         self._salt = self._load_salt(path.parent / ".salt")
 
@@ -199,25 +208,43 @@ class Storage:
     def group_settings(self, chat_id: int):
         from .guard import GroupSettings
 
-        row = self.db.execute("SELECT mode, strict, mute, lang, deleted FROM group_settings WHERE chat_id = ?",
+        row = self.db.execute("SELECT mode, strict, mute, lang, deleted, test FROM group_settings WHERE chat_id = ?",
                               (chat_id,)).fetchone()
         if row is None:
             return GroupSettings()
-        mode, strict, mute, lang, deleted = row
-        return GroupSettings(mode, bool(strict), bool(mute), lang, deleted)
+        mode, strict, mute, lang, deleted, test = row
+        return GroupSettings(mode, bool(strict), bool(mute), lang, deleted, bool(test))
 
     def save_group_settings(self, chat_id: int, settings) -> None:
         self.db.execute(
-            "INSERT INTO group_settings (chat_id, mode, strict, mute, lang, deleted) VALUES (?, ?, ?, ?, ?, ?) "
+            "INSERT INTO group_settings (chat_id, mode, strict, mute, lang, deleted, test) VALUES (?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(chat_id) DO UPDATE SET mode = excluded.mode, strict = excluded.strict, "
-            "mute = excluded.mute, lang = excluded.lang",
-            (chat_id, settings.mode, int(settings.strict), int(settings.mute), settings.lang, settings.deleted))
+            "mute = excluded.mute, lang = excluded.lang, test = excluded.test",
+            (chat_id, settings.mode, int(settings.strict), int(settings.mute), settings.lang, settings.deleted,
+             int(settings.test)))
         self.db.commit()
 
     def count_group_deletion(self, chat_id: int) -> None:
         self.db.execute("INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)", (chat_id,))
         self.db.execute("UPDATE group_settings SET deleted = deleted + 1 WHERE chat_id = ?", (chat_id,))
         self.db.commit()
+
+    LOG_DAYS = 30
+
+    def add_group_log(self, chat_id: int, sender: str, reason: str) -> None:
+        """What was removed in a group and why, for its admins (/log). Never the message text."""
+        now = datetime.now(timezone.utc)
+        self.db.execute("INSERT INTO group_log (chat_id, ts, sender, reason) VALUES (?, ?, ?, ?)",
+                        (chat_id, now.isoformat(timespec="seconds"), sender, reason))
+        from datetime import timedelta
+        self.db.execute("DELETE FROM group_log WHERE ts < ?",
+                        ((now - timedelta(days=self.LOG_DAYS)).isoformat(timespec="seconds"),))
+        self.db.commit()
+
+    def group_log(self, chat_id: int, limit: int = 15) -> list[tuple[str, str, str]]:
+        """(time, sender, reason), newest first."""
+        return self.db.execute("SELECT ts, sender, reason FROM group_log WHERE chat_id = ? ORDER BY ts DESC, rowid DESC "
+                               "LIMIT ?", (chat_id, limit)).fetchall()
 
     # ---- community memory (vectors of reported messages, see community.py) ----
     def add_scam_vector(self, vec: bytes, reporter_id: int) -> str:

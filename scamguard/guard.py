@@ -3,7 +3,8 @@
 The bot only deletes when it is an admin with the "Delete messages" right. Choices, from most to
 least important:
   * Never act on admins, anonymous admins or the group's own linked channel (its posts are copied
-    into the comments group automatically). Their messages are the group's own voice.
+    into the comments group automatically). Their messages are the group's own voice. The one
+    exception is test mode, which admins switch on to try the bot without a second account.
   * 🔴 dangerous (scam links, programs like .apk/.exe, community-blocklisted numbers) -> delete.
   * 🟡 suspicious -> left alone by default: a deleted normal message angers members more than a
     missed borderline one. "Strict" mode deletes these too. A "can't tell" question about a money
@@ -37,6 +38,7 @@ class GroupSettings:
     mute: bool = False       # mute repeat offenders for a day
     lang: str = "uz"         # language of the bot's messages in this group
     deleted: int = 0         # messages removed so far (shown in /settings)
+    test: bool = False       # test mode: admins' messages are checked too (to try the bot alone)
 
 
 def decide(level: Level, signals: list[str], settings: GroupSettings, can_delete: bool) -> str:

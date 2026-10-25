@@ -1,6 +1,8 @@
 """End-to-end bot tests with a fake Telegram server (no network, no real token)."""
 
 import asyncio
+import io
+import zipfile
 import importlib
 from datetime import datetime
 
@@ -689,3 +691,69 @@ def test_a_spam_wave_gets_one_notice_not_fifty(env):
         feed({"message": group_msg(SCAM_LINK)})
     assert len(calls_named(session, "DeleteMessage")) == 5               # every scam is removed
     assert sum("Removed a message" in t for t in session.sent_texts()) == 1
+
+
+# ---------------- beyond deleting: hidden apps, what an app does, log, test mode ----------------
+from test_apk import SMS_STEALER, build_apk  # noqa: E402
+
+
+def fake_download(monkeypatch, botmod, data):
+    async def download(message):
+        return data
+    monkeypatch.setattr(botmod, "download_file", download)
+
+
+def test_apk_hidden_in_a_zip_is_removed(env, monkeypatch):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("foto_2026.apk", b"x")
+    fake_download(monkeypatch, botmod, buf.getvalue())
+    notice = feed({"message": group_msg(document=Document(file_id="z1", file_unique_id="uz1", file_name="rasmlar.zip"))})
+    assert len(calls_named(session, "DeleteMessage")) == 1           # a plain .zip would only be 🟡
+    assert "foto_2026[.]apk" in notice
+
+
+def test_removal_notice_says_what_the_app_would_do(env, monkeypatch):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    fake_download(monkeypatch, botmod, build_apk(SMS_STEALER))
+    notice = feed({"message": group_msg(document=Document(file_id="a1", file_unique_id="ua1", file_name="taklifnoma.apk",
+                                                          file_size=2_000_000))})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+    assert "SMS" in notice
+
+
+def test_admins_see_a_removal_log_without_message_text(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    assert "Nothing removed yet" in feed({"message": group_msg("/log", user=OWNER)})
+    feed({"message": group_msg(SCAM_LINK)})
+    log = feed({"message": group_msg("/log", user=OWNER)})
+    assert "Recently removed" in log and "Islom" in log
+    assert "Tabriklaymiz" not in log and "click-uz-bonus.xyz" not in log   # no message text, no live link
+    assert "Only group admins" in feed({"message": group_msg("/log")})
+
+
+def test_test_mode_checks_admins_too(env):
+    botmod, session, feed = env
+    make_admins(session)
+    feed({"message": group_msg(SCAM_LINK, user=OWNER)})
+    assert not calls_named(session, "DeleteMessage")
+    panel = group_msg("panel", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
+    feed({"callback_query": CallbackQuery(id="t1", from_user=OWNER, chat_instance="x", data="gs:test", message=panel)})
+    assert botmod.storage.group_settings(GROUP.id).test is True
+    feed({"message": group_msg(SCAM_LINK, user=OWNER)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_help_has_one_tap_add_to_group_with_rights(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    feed({"message": msg("/help")})
+    url = calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0].url
+    assert url == "https://t.me/scamguard_test_bot?startgroup=guard&admin=delete_messages+restrict_members"
