@@ -42,6 +42,7 @@ import secrets
 import time
 from collections import OrderedDict, defaultdict, deque
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from aiogram import Bot, Dispatcher, F, Router
@@ -50,7 +51,8 @@ from aiogram.enums import ChatAction, ChatType, MessageEntityType, ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramNotFound, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
-    BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatMemberUpdated, ChatPermissions,
+    BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatAdministratorRights,
+    ChatMemberUpdated, ChatPermissions,
     ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, MenuButtonWebApp, WebAppInfo,
     InlineQueryResultArticle, InputTextMessageContent, KeyboardButton, Message, ReplyKeyboardMarkup,
 )
@@ -58,7 +60,7 @@ from aiogram.types import (
 import scamguard
 from scamguard import apk, blocklist, community, guard, ocr, radar, reputation, semantic
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
-from scamguard.files import APK_REASON, check_file
+from scamguard.files import APK_REASON, MAX_SNIFF_BYTES, FileVerdict, check_file, look_inside, needs_look_inside
 from scamguard.reasons import Reason
 from scamguard.i18n import LANG_NAMES, LANGS, SCAM_TYPES, all_variants, guess_lang, t
 from scamguard.storage import Storage
@@ -75,6 +77,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger("scamguard")
 
 LEVEL_ORDER = [Level.SAFE, Level.SUSPICIOUS, Level.DANGEROUS]
+TASHKENT = timezone(timedelta(hours=5))   # times in the group log
 RATE_LIMIT = (15, 60)  # max checks per user per N seconds
 MAX_CACHE = 2000
 
@@ -163,6 +166,25 @@ def main_menu(lang: str) -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         input_field_placeholder="📩 Forward…",
     )
+
+
+# Rights the bot asks for when it is added to a group. The "add to group" link pre-ticks them, so an
+# admin adds it with one tap instead of finding "Delete messages" in the settings.
+GROUP_RIGHTS = ChatAdministratorRights(
+    is_anonymous=False, can_manage_chat=False, can_delete_messages=True, can_manage_video_chats=False,
+    can_restrict_members=True, can_promote_members=False, can_change_info=False, can_invite_users=False,
+    can_post_stories=False, can_edit_stories=False, can_delete_stories=False, can_send_welcome_messages=False)
+
+
+def add_to_group_url() -> str:
+    return f"https://t.me/{BOT_USERNAME}?startgroup=guard&admin=delete_messages+restrict_members"
+
+
+def add_to_group_keyboard(lang: str) -> InlineKeyboardMarkup | None:
+    if not BOT_USERNAME:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t("add_group_btn", lang),
+                                                                       url=add_to_group_url())]])
 
 
 def lang_keyboard() -> InlineKeyboardMarkup:
@@ -274,16 +296,30 @@ async def download_file(message: Message) -> bytes:
     return buf.read() if buf else b""
 
 
-async def inspect_app(message: Message) -> AppCheck | None:
+_looked_at: OrderedDict[str, object] = OrderedDict()   # file_unique_id -> AppCheck / FileVerdict (memory only)
+
+
+def _remember_look(key: str, value) -> None:
+    _looked_at[key] = value
+    while len(_looked_at) > MAX_CACHE:
+        _looked_at.popitem(last=False)
+
+
+async def inspect_app(message: Message, typing: bool = True) -> AppCheck | None:
     """Download an .apk into memory and read what it is allowed to do. Never installs or runs it.
-    Any failure falls back to the name-based check, so a broken download never breaks the reply."""
+    Any failure falls back to the name-based check, so a broken download never breaks the reply.
+    The same file forwarded again (same file_unique_id) is not downloaded twice."""
     doc = message.document
     if doc is None or not apk.is_apk_name(doc.file_name, doc.mime_type):
         return None
     if doc.file_size and doc.file_size > apk.MAX_APK_BYTES:
         return AppCheck([apk.TOO_BIG])
+    seen = _looked_at.get(f"app:{doc.file_unique_id}")
+    if isinstance(seen, AppCheck):
+        return seen
     try:
-        await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+        if typing:
+            await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
         data = await download_file(message)
         async with _apk_slots:
             report = await asyncio.wait_for(asyncio.to_thread(apk.inspect_apk, data), APK_TIMEOUT_S)
@@ -294,7 +330,30 @@ async def inspect_app(message: Message) -> AppCheck | None:
         return None
     finally:
         data = b""                                    # drop the bytes as soon as possible
-    return AppCheck(apk.report_reasons(report), apk.report_signals(report), looked_inside=True, sha256=report.sha256)
+    check = AppCheck(apk.report_reasons(report), apk.report_signals(report), looked_inside=True, sha256=report.sha256)
+    _remember_look(f"app:{doc.file_unique_id}", check)
+    return check
+
+
+async def inspect_contents(message: Message) -> FileVerdict | None:
+    """Archives and files of unknown type: read the names inside (nothing is unpacked) to find an
+    .apk hidden in a .zip or an app renamed to look harmless. None when there is nothing to add."""
+    doc = message.document
+    if doc is None or not needs_look_inside(doc.file_name) or (doc.file_size or 0) > MAX_SNIFF_BYTES:
+        return None
+    key = f"look:{doc.file_unique_id}"
+    if key in _looked_at:
+        return _looked_at[key]
+    try:
+        data = await download_file(message)
+        verdict = await asyncio.wait_for(asyncio.to_thread(look_inside, data, doc.file_name), APK_TIMEOUT_S)
+    except Exception as e:                            # network, Telegram or timeout problems: name check only
+        log.warning("Look inside a file failed: %s", e)
+        return None
+    finally:
+        data = b""
+    _remember_look(key, verdict)
+    return verdict
 
 
 def level_for(score: float) -> Level:
@@ -341,14 +400,17 @@ def evaluate_text(text: str) -> Result:
     return Result(level, reasons, score, None, text, None, trust, signals, radar.scam_domains(verdict.links))
 
 
-def evaluate(message: Message, extra_text: str = "", app: AppCheck | None = None) -> Result | None:
-    """Full check of a message: text, hidden links, file (and what an .apk may do), OCR text
-    and the community blocklist."""
+def evaluate(message: Message, extra_text: str = "", app: AppCheck | None = None,
+             contents: FileVerdict | None = None) -> Result | None:
+    """Full check of a message: text, hidden links, file (what an .apk may do, what an archive
+    hides), OCR text and the community blocklist."""
     text = "\n".join(filter(None, [full_text(message), extra_text]))
     file_level, reasons, score = None, [], 0.0
     doc = message.document
     if doc is not None:
         fv = check_file(doc.file_name, doc.mime_type)
+        if contents is not None and LEVEL_ORDER.index(contents.level) > LEVEL_ORDER.index(fv.level):
+            fv = contents                                 # what's inside is worse than the name suggests
         file_level, reasons = fv.level, list(fv.reasons)
         if app is not None and app.looked_inside:
             # We know what the app can do, so the general ".apk" warnings would only repeat it.
@@ -492,7 +554,8 @@ async def cmd_lang(message: Message) -> None:
 @private.message(Command("help", "check"))
 @private.message(F.text.in_(all_variants("btn_check")))
 async def cmd_help(message: Message) -> None:
-    await message.answer(t("how_to_check", lang_of(message.from_user)))
+    lang = lang_of(message.from_user)
+    await message.answer(t("how_to_check", lang), reply_markup=add_to_group_keyboard(lang))
 
 
 @private.message(Command("sos"))
@@ -545,7 +608,7 @@ async def on_check(message: Message) -> None:
             if not ocr_text and not message.caption and forward_id(message) is None:
                 await message.reply(t("ocr_empty", lang))
                 return
-    result = evaluate(message, ocr_text, await inspect_app(message))
+    result = evaluate(message, ocr_text, await inspect_app(message), await inspect_contents(message))
     if result is None:
         await message.reply(t("empty", lang))
         return
@@ -571,7 +634,7 @@ async def group_check(message: Message) -> None:
     if target is None:
         await message.reply(t("check_hint", lang))
         return
-    result = evaluate(target, await read_image(target), await inspect_app(target))
+    result = evaluate(target, await read_image(target), await inspect_app(target), await inspect_contents(target))
     if result is None:
         await message.reply(t("empty", lang))
         return
@@ -655,14 +718,15 @@ async def chat_info(bot: Bot, chat_id: int) -> ChatInfo:
     return info
 
 
-def is_exempt(message: Message, info: ChatInfo) -> bool:
-    """Admins, anonymous admins and the group's own channel are never moderated."""
+def is_exempt(message: Message, info: ChatInfo, test: bool = False) -> bool:
+    """Admins, anonymous admins and the group's own channel are never moderated, except that test
+    mode checks admins too (so an admin can try the bot without a second account)."""
     if message.is_automatic_forward:           # a channel post copied into its comments group
         return True
     if message.sender_chat is not None:         # sent "as" a group or channel
-        return message.sender_chat.id in (message.chat.id, info.linked)
+        return not test and message.sender_chat.id in (message.chat.id, info.linked)
     user = message.from_user
-    return user is None or user.is_bot or user.id in info.admins
+    return user is None or user.is_bot or (not test and user.id in info.admins)
 
 
 def sender_of(message: Message) -> tuple[int, str]:
@@ -716,6 +780,12 @@ async def remove(bot: Bot, message: Message, result: Result, settings: guard.Gro
     storage.count_group_deletion(message.chat.id)
     sender_id, name = sender_of(message)
     lang = settings.lang
+    reason = result.reasons[0].text(lang) if result.reasons else re.sub(r"<[^>]+>", "", t("v_dangerous", lang))
+    app = await inspect_app(message, typing=False)   # deleted first, looked at after: the file_id still works
+    if app is not None and app.looked_inside and app.reasons:
+        reason = app.reasons[0].text(lang)             # "can read your SMS codes" says more than ".apk"
+    doc = message.document
+    storage.add_group_log(message.chat.id, name, (f"{doc.file_name}: " if doc and doc.file_name else "") + reason)
     now = time.monotonic()
     if now - _last_notice.get(message.chat.id, -NOTICE_GAP_S) >= NOTICE_GAP_S:
         _last_notice[message.chat.id] = now
@@ -724,7 +794,6 @@ async def remove(bot: Bot, message: Message, result: Result, settings: guard.Gro
                                 result.level.value, attached_file(message))
         while len(_removed) > MAX_CACHE:
             _removed.popitem(last=False)
-        reason = result.reasons[0].text(lang) if result.reasons else re.sub(r"<[^>]+>", "", t("v_dangerous", lang))
         undo = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=t("g_undo_btn", lang),
                                                                            callback_data=f"gu:{key}")]])
         notice = await bot.send_message(
@@ -766,7 +835,7 @@ async def warn(bot: Bot, message: Message, result: Result, settings: guard.Group
 
 async def guard_message(message: Message, bot: Bot, edited: bool = False) -> None:
     """Check a group message; remove it, warn, or stay silent (see guard.py)."""
-    result = evaluate(message)
+    result = evaluate(message, contents=await inspect_contents(message))
     if result is None:
         return
     if not edited:
@@ -775,7 +844,7 @@ async def guard_message(message: Message, bot: Bot, edited: bool = False) -> Non
     if guard.decide(result.level, result.signals, settings, can_delete=True) == guard.NONE:
         return                                   # nothing to do: no admin lookup for normal messages
     info = await chat_info(bot, message.chat.id)
-    if is_exempt(message, info):
+    if is_exempt(message, info, settings.test):
         return
     action = guard.decide(result.level, result.signals, settings, info.can_delete)
     if action == guard.DELETE and await remove(bot, message, result, settings, info):
@@ -793,7 +862,7 @@ def settings_view(settings: guard.GroupSettings, info: ChatInfo) -> tuple[str, I
     if settings.mute and info.can_delete and not info.can_restrict:
         rights += "\n" + t("g_cannot_mute", lang)
     text = t("g_settings", lang, mode=t(f"g_mode_{settings.mode}", lang), strict=onoff(settings.strict),
-             mute=onoff(settings.mute), deleted=settings.deleted, rights=rights)
+             mute=onoff(settings.mute), test=onoff(settings.test), deleted=settings.deleted, rights=rights)
     b = InlineKeyboardButton
     markup = InlineKeyboardMarkup(inline_keyboard=[
         # one button per mode, the active one ticked: a single cycling button was easy to leave on the wrong mode
@@ -801,6 +870,8 @@ def settings_view(settings: guard.GroupSettings, info: ChatInfo) -> tuple[str, I
           for m in guard.MODES],
         [b(text=f"{t('g_btn_strict', lang)}: {onoff(settings.strict)}", callback_data="gs:strict"),
          b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data="gs:mute")],
+        [b(text=f"{t('g_btn_test', lang)}: {onoff(settings.test)}", callback_data="gs:test"),
+         b(text=t("g_btn_log", lang), callback_data="gs:log")],
         [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data="gs:lang")],
     ])
     return text, markup
@@ -825,6 +896,27 @@ async def group_settings_cmd(message: Message, bot: Bot) -> None:
         return
     text, markup = settings_view(settings, await chat_info(bot, message.chat.id))
     await message.reply(text, reply_markup=markup)
+
+
+def log_text(chat_id: int, lang: str) -> str:
+    rows = storage.group_log(chat_id)
+    if not rows:
+        return t("g_log_empty", lang)
+    lines = [t("g_log_title", lang)]
+    for ts, sender, reason in rows:
+        when = datetime.fromisoformat(ts).astimezone(TASHKENT).strftime("%d.%m %H:%M")
+        lines.append(f"• <code>{when}</code> {html.escape(sender)}: {html.escape(defang_text(reason))[:200]}")
+    return "\n".join(lines)
+
+
+@groups.message(Command("log"))
+async def group_log_cmd(message: Message, bot: Bot) -> None:
+    settings = storage.group_settings(message.chat.id)
+    anonymous_admin = message.sender_chat is not None and message.sender_chat.id == message.chat.id
+    if not anonymous_admin and not await is_group_admin(bot, message.chat.id, message.from_user):
+        await message.reply(t("g_admins_only", settings.lang))
+        return
+    await message.reply(log_text(message.chat.id, settings.lang), disable_web_page_preview=True)
 
 
 # The catch-all scanners come after every group command, so commands reach their own handlers.
@@ -857,6 +949,12 @@ async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
         settings.strict = not settings.strict
     elif what == "mute":
         settings.mute = not settings.mute
+    elif what == "test":
+        settings.test = not settings.test
+    elif what == "log":
+        await callback.answer()
+        await bot.send_message(chat_id, log_text(chat_id, settings.lang))
+        return
     elif what == "lang":
         settings.lang = LANGS[(LANGS.index(settings.lang) + 1) % len(LANGS)]
     storage.save_group_settings(chat_id, settings)
@@ -1077,7 +1175,7 @@ async def setup_profile(bot: Bot) -> None:
                 scope=BotCommandScopeDefault(), language_code=code,
             )
             await bot.set_my_commands(
-                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "settings", "help")],
+                [BotCommand(command=c, description=t(f"cmd_{c}", lang)) for c in ("check", "report", "settings", "log", "help")],
                 scope=BotCommandScopeAllGroupChats(), language_code=code,
             )
             # The bio is shown in Uzbek to everyone, whatever language their Telegram app uses.
@@ -1088,6 +1186,10 @@ async def setup_profile(bot: Bot) -> None:
                 await bot.set_my_short_description(t("bot_short", "uz"), language_code=code)
         except TelegramBadRequest as e:
             log.warning("Could not update bot profile for %s: %s", lang, e)
+    try:   # the "Add to group" screen pre-ticks these rights ("This bot is able to manage a group")
+        await bot.set_my_default_administrator_rights(rights=GROUP_RIGHTS)
+    except TelegramBadRequest as e:
+        log.warning("Could not set default admin rights: %s", e)
     if RADAR_URL:
         try:   # the chat's Menu button opens the Scam Radar Mini App
             await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(

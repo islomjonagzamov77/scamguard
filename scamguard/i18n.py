@@ -305,13 +305,19 @@ T: dict[str, dict[str, str]] = {
     "g_settings": {
         "uz": "🛡 <b>ScamGuard sozlamalari</b>\n\n"
               "Rejim: <b>{mode}</b>\nQat'iy (🟡 shubhalilarni ham o'chirish): <b>{strict}</b>\n"
-              "Takrorlovchilarni 24 soatga cheklash: <b>{mute}</b>\nShu paytgacha o'chirildi: <b>{deleted}</b>\n\n{rights}",
+              "Takrorlovchilarni 24 soatga cheklash: <b>{mute}</b>\n"
+              "🧪 Test rejimi (adminlar xabarlari ham tekshiriladi): <b>{test}</b>\n"
+              "Shu paytgacha o'chirildi: <b>{deleted}</b>\n\n{rights}",
         "ru": "🛡 <b>Настройки ScamGuard</b>\n\n"
               "Режим: <b>{mode}</b>\nСтрогий (удалять и 🟡 подозрительные): <b>{strict}</b>\n"
-              "Блокировать повторных нарушителей на 24 часа: <b>{mute}</b>\nУдалено всего: <b>{deleted}</b>\n\n{rights}",
+              "Блокировать повторных нарушителей на 24 часа: <b>{mute}</b>\n"
+              "🧪 Тестовый режим (проверять и сообщения админов): <b>{test}</b>\n"
+              "Удалено всего: <b>{deleted}</b>\n\n{rights}",
         "en": "🛡 <b>ScamGuard settings</b>\n\n"
               "Mode: <b>{mode}</b>\nStrict (also remove 🟡 suspicious): <b>{strict}</b>\n"
-              "Mute repeat offenders for 24 hours: <b>{mute}</b>\nRemoved so far: <b>{deleted}</b>\n\n{rights}",
+              "Mute repeat offenders for 24 hours: <b>{mute}</b>\n"
+              "🧪 Test mode (admins' messages are checked too): <b>{test}</b>\n"
+              "Removed so far: <b>{deleted}</b>\n\n{rights}",
     },
     "g_mode_delete": {"uz": "🗑 xavflilarni o'chirish", "ru": "🗑 удалять опасные", "en": "🗑 remove dangerous"},
     "g_mode_warn": {"uz": "⚠️ faqat ogohlantirish", "ru": "⚠️ только предупреждать", "en": "⚠️ warn only"},
@@ -334,6 +340,16 @@ T: dict[str, dict[str, str]] = {
     "g_btn_mode": {"uz": "Rejim", "ru": "Режим", "en": "Mode"},
     "g_btn_strict": {"uz": "Qat'iy", "ru": "Строгий", "en": "Strict"},
     "g_btn_mute": {"uz": "Cheklash", "ru": "Блокировка", "en": "Mute"},
+    "g_btn_test": {"uz": "🧪 Test", "ru": "🧪 Тест", "en": "🧪 Test"},
+    "g_btn_log": {"uz": "🗒 Jurnal", "ru": "🗒 Журнал", "en": "🗒 Log"},
+    "g_log_title": {
+        "uz": "🗒 <b>So'nggi o'chirilgan xabarlar</b> (30 kun):", "ru": "🗒 <b>Последние удалённые сообщения</b> (30 дней):",
+        "en": "🗒 <b>Recently removed messages</b> (30 days):",
+    },
+    "g_log_empty": {
+        "uz": "🗒 Hali hech narsa o'chirilmadi.", "ru": "🗒 Пока ничего не удалено.", "en": "🗒 Nothing removed yet.",
+    },
+    "add_group_btn": {"uz": "➕ Guruhga qo'shish", "ru": "➕ Добавить в группу", "en": "➕ Add to a group"},
     "g_btn_lang": {"uz": "🌐 Til", "ru": "🌐 Язык", "en": "🌐 Language"},
     "group_warn": {
         "uz": "⚠️ <b>Diqqat! Bu xabar firibgarlikka o'xshaydi.</b>",
@@ -469,6 +485,8 @@ T: dict[str, dict[str, str]] = {
     "cmd_stats": {"uz": "Statistika", "ru": "Статистика", "en": "Statistics"},
     "cmd_lang": {"uz": "Tilni o'zgartirish", "ru": "Сменить язык", "en": "Change language"},
     "cmd_privacy": {"uz": "Maxfiylik", "ru": "Конфиденциальность", "en": "Privacy"},
+    "cmd_log": {"uz": "O'chirilgan xabarlar jurnali (adminlar)", "ru": "Журнал удалённых сообщений (админы)",
+                "en": "Log of removed messages (admins)"},
     "cmd_settings": {"uz": "Guruh himoyasi sozlamalari (adminlar)", "ru": "Настройки защиты группы (админы)",
                      "en": "Group protection settings (admins)"},
     "cmd_report": {"uz": "Firibgarni belgilash (javob sifatida)", "ru": "Пожаловаться на мошенника (ответом)",

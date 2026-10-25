@@ -165,7 +165,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 262 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
+python -m pytest                   # 275 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
 python -m scamguard.semantic download   # the multilingual transformer (~240 MB, optional)
 python train.py                    # train both AI models and print the evaluation
 python benchmark.py                # how well each AI model handles scam types it never saw
@@ -177,8 +177,8 @@ python bot.py
 
 ## Protect a group or channel
 
-1. Add the bot to the group and make it an **admin** with the **Delete messages** right. With **Ban users** as well, it
-   can mute repeat offenders.
+1. Open the bot, tap **/help → ➕ Add to a group** and pick the group: the bot joins as an admin with **Delete messages**
+   and **Ban users** already ticked. (Or add it by hand and give it those rights.)
 2. **Channels**: only admins post in a channel, so spam arrives in the **comments**. Comments live in the channel's linked
    discussion group: add the bot there (channel → Edit → Discussion).
 3. Admins type `/settings` in the group:
@@ -189,6 +189,14 @@ python bot.py
 | Strict | off | also delete 🟡 suspicious messages (archives, macro documents, softer scam signs) |
 | Mute | off | after 3 removed messages in 24 hours, the sender can't write for 24 hours |
 | Language | the language of whoever added the bot | language of the bot's messages in the group |
+| 🧪 Test | off | admins' messages are checked too, to try the bot (or demo it) without a second account |
+| 🗒 Log | | the last removals of 30 days: when, who, why. Also `/log`. Never the message text |
+
+What it catches beyond the file name:
+- an **.apk hidden inside a .zip**, also when the archive is password-protected (the names inside stay readable;
+  nothing is unpacked);
+- an **app renamed to look harmless** ("document", "video.dat") or a Windows program under another name;
+- for an .apk up to 20 MB, the notice says **what the app would do** ("can read your SMS codes"), read from its manifest.
 
 What it never does:
 - moderate admins, anonymous admins, or posts from the group's own channel;
@@ -311,6 +319,8 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
 - [x] Group mode: the bot warns a group chat when someone posts a scam link
 - [x] Group guard: removes scams and dangerous files in groups and channel comments, with undo, strict mode,
   muting of repeat offenders and edited-message checks (`scamguard/guard.py`)
+- [x] Finds apps hidden in archives or renamed, explains what a removed app would do, removal log for admins,
+  test mode, one-tap "add to group" with the rights pre-ticked
 - [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
 - [x] Threat feed of detected fake sites (`/api/v1/feed.txt` for DNS filters, `/api/v1/feed.json` for banks and CERTs)
 - [x] Check a message on the website and in the Telegram Mini App; public `POST /api/v1/check` API
