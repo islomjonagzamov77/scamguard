@@ -775,3 +775,116 @@ def test_apk_warning_is_not_repeated(env):
     doc = Document(file_id="d9", file_unique_id="u9", file_name="linebet.apk", file_size=46_000_000)
     reply = feed({"message": msg("LINEBET APK", document=doc)})
     assert reply.count("installable Android app") == 1
+
+
+# ---------------- newcomers, joined/left cleanup, "My groups" ----------------
+from aiogram.types import ChatMemberLeft, ChatMemberMember, ChatMemberUpdated, MessageOriginChannel  # noqa: E402
+
+NEWBIE = User(id=555000, is_bot=False, first_name="Newbie", language_code="uz")
+
+
+def join(feed, user=NEWBIE):
+    feed({"message": Message(message_id=next(_uid), date=datetime.now(), chat=GROUP, from_user=user,
+                             new_chat_members=[user])})
+
+
+def test_newcomers_cant_post_links_on_day_one(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    harmless_link = "Assalomu alaykum, mana dars jadvali: https://docs.google.com/document/d/abc"
+    feed({"message": group_msg(harmless_link)})                     # an old member: fine
+    assert not calls_named(session, "DeleteMessage")
+    join(feed)
+    notice = feed({"message": group_msg(harmless_link, user=NEWBIE)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+    assert "new member" in notice
+    feed({"message": group_msg("Salom hammaga!", user=NEWBIE)})       # plain text from a newcomer is fine
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_newcomer_forwards_from_channels_are_removed(env):
+    botmod, session, feed = env
+    make_admins(session)
+    join(feed)
+    origin = MessageOriginChannel(type="channel", date=datetime.now(), chat=Chat(id=-500, type="channel", title="Ads"),
+                                  message_id=1)
+    feed({"message": group_msg("Eng zo'r kanal!", user=NEWBIE, forward_origin=origin)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_newcomer_protection_can_be_switched_off(env):
+    botmod, session, feed = env
+    make_admins(session)
+    settings = english_group(botmod)
+    settings.newcomers = False
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    join(feed)
+    feed({"message": group_msg("https://docs.google.com/document/d/abc", user=NEWBIE)})
+    assert not calls_named(session, "DeleteMessage")
+
+
+def test_joins_without_a_joined_message_still_count(env):
+    botmod, session, feed = env
+    make_admins(session)
+    feed({"chat_member": ChatMemberUpdated(chat=GROUP, from_user=NEWBIE, date=datetime.now(),
+                                           old_chat_member=ChatMemberLeft(user=NEWBIE),
+                                           new_chat_member=ChatMemberMember(user=NEWBIE))})
+    feed({"message": group_msg("https://example.com/promo", user=NEWBIE)})
+    assert len(calls_named(session, "DeleteMessage")) == 1
+
+
+def test_joined_left_messages_are_cleaned_when_asked(env):
+    botmod, session, feed = env
+    make_admins(session)
+    join(feed)
+    assert not calls_named(session, "DeleteMessage")
+    settings = english_group(botmod)
+    settings.clean_joins = True
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    join(feed, User(id=555001, is_bot=False, first_name="Other"))
+    feed({"message": Message(message_id=next(_uid), date=datetime.now(), chat=GROUP, from_user=NEWBIE,
+                             left_chat_member=NEWBIE)})
+    assert len(calls_named(session, "DeleteMessage")) == 2
+
+
+def test_my_groups_dashboard_in_private_chat(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    botmod.storage.set_lang(OWNER.id, "en")
+    owner_private = Chat(id=OWNER.id, type="private")
+    private_msg = lambda text: Message(message_id=next(_uid), date=datetime.now(), chat=owner_private,  # noqa: E731
+                                       from_user=OWNER, text=text)
+    assert "No groups yet" in feed({"message": private_msg("/groups")})
+
+    feed({"message": group_msg("/settings", user=OWNER)})           # the owner opens settings once in the group
+    feed({"message": group_msg(SCAM_LINK)})                          # and the bot removes a scam
+    feed({"message": private_msg("👥 My groups")})
+    button = calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0]
+    assert button.text.startswith("⚙️") and button.text.endswith("🗑 1") and button.callback_data == f"gp:{GROUP.id}"
+
+    panel_in_private = private_msg("list")
+    feed({"callback_query": CallbackQuery(id="g1", from_user=OWNER, chat_instance="x", data=button.callback_data,
+                                          message=panel_in_private)})
+    panel = calls_named(session, "SendMessage")[-1]
+    assert "Test group" in panel.text and "ScamGuard settings" in panel.text
+    strict = [b for row in panel.reply_markup.inline_keyboard for b in row if b.callback_data.startswith("gs:strict")][0]
+    assert strict.callback_data == f"gs:strict::{GROUP.id}"
+    feed({"callback_query": CallbackQuery(id="g2", from_user=OWNER, chat_instance="x", data=strict.callback_data,
+                                          message=panel_in_private)})
+    assert botmod.storage.group_settings(GROUP.id).strict is True       # changed from the private chat
+
+    feed({"callback_query": CallbackQuery(id="g3", from_user=USER, chat_instance="x", data=strict.callback_data,
+                                          message=msg("x"))})
+    assert botmod.storage.group_settings(GROUP.id).strict is True       # a non-admin can't flip it back
+
+
+def test_group_leaves_the_list_when_the_bot_is_removed(env):
+    botmod, session, feed = env
+    botmod.storage.add_manager(GROUP.id, OWNER.id, "Test group")
+    bot_user = User(id=BOT_ID, is_bot=True, first_name="ScamGuard")
+    feed({"my_chat_member": ChatMemberUpdated(chat=GROUP, from_user=OWNER, date=datetime.now(),
+                                              old_chat_member=ChatMemberMember(user=bot_user),
+                                              new_chat_member=ChatMemberLeft(user=bot_user))})
+    assert botmod.storage.managed_groups(OWNER.id) == []

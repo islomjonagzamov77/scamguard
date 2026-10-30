@@ -159,7 +159,7 @@ def rate_limited(user_id: int) -> bool:
 
 def main_menu(lang: str) -> ReplyKeyboardMarkup:
     b = lambda key: KeyboardButton(text=t(key, lang))  # noqa: E731
-    last_row = [b("btn_lang")]
+    last_row = [b("btn_groups"), b("btn_lang")]
     if RADAR_URL:   # opens the Scam Radar website inside Telegram as a Mini App
         last_row.insert(0, KeyboardButton(text=t("btn_radar", lang), web_app=WebAppInfo(url=f"{RADAR_URL}/?lang={lang}")))
     return ReplyKeyboardMarkup(
@@ -594,6 +594,22 @@ async def cmd_privacy(message: Message) -> None:
     await message.answer(t("privacy", lang_of(message.from_user)))
 
 
+@private.message(Command("groups"))
+@private.message(F.text.in_(all_variants("btn_groups")))
+async def cmd_groups(message: Message) -> None:
+    """The groups this person manages: removed-message counts and their settings, from the private chat."""
+    lang = lang_of(message.from_user)
+    groups_ = storage.managed_groups(message.from_user.id)
+    if not groups_:
+        await message.answer(t("my_groups_empty", lang), reply_markup=add_to_group_keyboard(lang))
+        return
+    rows = [[InlineKeyboardButton(text=f"⚙️ {title or chat_id} · 🗑 {removed}", callback_data=f"gp:{chat_id}")]
+            for chat_id, title, removed in groups_[:20]]
+    if BOT_USERNAME:
+        rows.append([InlineKeyboardButton(text=t("add_group_btn", lang), url=add_to_group_url())])
+    await message.answer(t("my_groups_title", lang), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+
+
 @private.message(Command("settings", "log", "check", "report"))
 async def private_group_command(message: Message) -> None:
     """Group commands typed in the private chat: say where they work instead of checking the text."""
@@ -851,12 +867,17 @@ async def guard_message(message: Message, bot: Bot, edited: bool = False) -> Non
     if not edited:
         record(result)
     settings = storage.group_settings(message.chat.id)
-    if guard.decide(result.level, result.signals, settings, can_delete=True) == guard.NONE:
+    newcomer_hit = is_newcomer(message, settings) and guard.newcomer_break(
+        result.level, result.signals, has_link(message, result), forwarded_from_chat(message))
+    if guard.decide(result.level, result.signals, settings, can_delete=True) == guard.NONE and not newcomer_hit:
         return                                   # nothing to do: no admin lookup for normal messages
     info = await chat_info(bot, message.chat.id)
     if is_exempt(message, info, settings.test):
         return
     action = guard.decide(result.level, result.signals, settings, info.can_delete)
+    if action == guard.NONE and newcomer_hit and settings.mode == "delete" and info.can_delete:
+        action = guard.DELETE
+        result.reasons.insert(0, guard.NEWCOMER_REASON)   # the notice says why a normal-looking message went
     if action == guard.DELETE and await remove(bot, message, result, settings, info):
         return
     if action != guard.NONE and result.level == Level.DANGEROUS:
@@ -865,24 +886,33 @@ async def guard_message(message: Message, bot: Bot, edited: bool = False) -> Non
 
 # ---- admin settings ----
 
-def settings_view(settings: guard.GroupSettings, info: ChatInfo) -> tuple[str, InlineKeyboardMarkup]:
+def settings_view(settings: guard.GroupSettings, info: ChatInfo, chat_id: int | None = None,
+                  title: str = "") -> tuple[str, InlineKeyboardMarkup]:
+    """The settings panel. In the group itself chat_id is None; opened from "My groups" in the
+    private chat, every button carries the group's id."""
     lang = settings.lang
+    cb = lambda what, value="": f"gs:{what}:{value}" + (f":{chat_id}" if chat_id else "")  # noqa: E731
     onoff = lambda v: t("g_on" if v else "g_off", lang)  # noqa: E731
     rights = t("g_can_delete" if info.can_delete else "g_cannot_delete", lang)
     if settings.mute and info.can_delete and not info.can_restrict:
         rights += "\n" + t("g_cannot_mute", lang)
     text = t("g_settings", lang, mode=t(f"g_mode_{settings.mode}", lang), strict=onoff(settings.strict),
-             mute=onoff(settings.mute), test=onoff(settings.test), deleted=settings.deleted, rights=rights)
+             mute=onoff(settings.mute), test=onoff(settings.test), newcomers=onoff(settings.newcomers),
+             clean=onoff(settings.clean_joins), deleted=settings.deleted, rights=rights)
+    if title:
+        text = f"👥 <b>{html.escape(title)}</b>\n" + text
     b = InlineKeyboardButton
     markup = InlineKeyboardMarkup(inline_keyboard=[
         # one button per mode, the active one ticked: a single cycling button was easy to leave on the wrong mode
-        *[[b(text=("✅ " if m == settings.mode else "") + t(f"g_mode_{m}", lang), callback_data=f"gs:mode:{m}")]
+        *[[b(text=("✅ " if m == settings.mode else "") + t(f"g_mode_{m}", lang), callback_data=cb("mode", m))]
           for m in guard.MODES],
-        [b(text=f"{t('g_btn_strict', lang)}: {onoff(settings.strict)}", callback_data="gs:strict"),
-         b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data="gs:mute")],
-        [b(text=f"{t('g_btn_test', lang)}: {onoff(settings.test)}", callback_data="gs:test"),
-         b(text=t("g_btn_log", lang), callback_data="gs:log")],
-        [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data="gs:lang")],
+        [b(text=f"{t('g_btn_strict', lang)}: {onoff(settings.strict)}", callback_data=cb("strict")),
+         b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data=cb("mute"))],
+        [b(text=f"{t('g_btn_newcomers', lang)}: {onoff(settings.newcomers)}", callback_data=cb("newcomers")),
+         b(text=f"{t('g_btn_clean', lang)}: {onoff(settings.clean_joins)}", callback_data=cb("clean"))],
+        [b(text=f"{t('g_btn_test', lang)}: {onoff(settings.test)}", callback_data=cb("test")),
+         b(text=t("g_btn_log", lang), callback_data=cb("log"))],
+        [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data=cb("lang"))],
     ])
     return text, markup
 
@@ -904,6 +934,8 @@ async def group_settings_cmd(message: Message, bot: Bot) -> None:
     if not anonymous_admin and not await is_group_admin(bot, message.chat.id, message.from_user):
         await message.reply(t("g_admins_only", settings.lang))
         return
+    if not anonymous_admin:
+        storage.add_manager(message.chat.id, message.from_user.id, message.chat.title or "")
     text, markup = settings_view(settings, await chat_info(bot, message.chat.id))
     await message.reply(text, reply_markup=markup)
 
@@ -926,10 +958,60 @@ async def group_log_cmd(message: Message, bot: Bot) -> None:
     if not anonymous_admin and not await is_group_admin(bot, message.chat.id, message.from_user):
         await message.reply(t("g_admins_only", settings.lang))
         return
+    if not anonymous_admin:
+        storage.add_manager(message.chat.id, message.from_user.id, message.chat.title or "")
     await message.reply(log_text(message.chat.id, settings.lang), disable_web_page_preview=True)
 
 
 # The catch-all scanners come after every group command, so commands reach their own handlers.
+def is_newcomer(message: Message, settings: guard.GroupSettings) -> bool:
+    if not settings.newcomers or message.sender_chat is not None or message.from_user is None:
+        return False
+    joined = storage.joined_at(message.chat.id, message.from_user.id)
+    return joined is not None and time.time() - joined < guard.NEWCOMER_S
+
+
+def has_link(message: Message, result: Result) -> bool:
+    entities = message.entities or message.caption_entities or []
+    return bool(result.links) or any(e.type in (MessageEntityType.URL, MessageEntityType.TEXT_LINK) for e in entities)
+
+
+def forwarded_from_chat(message: Message) -> bool:
+    return getattr(message.forward_origin, "type", "") in ("channel", "chat")
+
+
+@groups.message(F.new_chat_members)
+async def on_members_joined(message: Message, bot: Bot) -> None:
+    now = time.time()
+    for user in message.new_chat_members:
+        if not user.is_bot:
+            storage.member_joined(message.chat.id, user.id, now)
+    await clean_service_message(message, bot)
+
+
+@groups.message(F.left_chat_member)
+async def on_member_left(message: Message, bot: Bot) -> None:
+    await clean_service_message(message, bot)
+
+
+async def clean_service_message(message: Message, bot: Bot) -> None:
+    """"X joined / X left": removed when the admins asked for it (spam accounts come in waves)."""
+    if not storage.group_settings(message.chat.id).clean_joins:
+        return
+    if (await chat_info(bot, message.chat.id)).can_delete:
+        with contextlib.suppress(TelegramAPIError):
+            await message.delete()
+
+
+@dp.chat_member()
+async def on_member_update(event: ChatMemberUpdated) -> None:
+    """Joins that leave no "joined" message (big groups hide them): still start the newcomer clock."""
+    gone = ("left", "kicked")
+    user = event.new_chat_member.user
+    if event.old_chat_member.status in gone and event.new_chat_member.status not in gone and not user.is_bot:
+        storage.member_joined(event.chat.id, user.id, time.time())
+
+
 @groups.message(F.text | F.caption | F.document)
 async def group_scan(message: Message, bot: Bot) -> None:
     await guard_message(message, bot)
@@ -945,12 +1027,16 @@ async def group_edit(message: Message, bot: Bot) -> None:
 async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
     if callback.message is None:
         return
-    chat_id = callback.message.chat.id
+    # "gs:strict", "gs:mode:warn" (in the group) or "gs:mode:warn:-100123" (from "My groups")
+    parts = callback.data.split(":") + ["", ""]
+    what, value, target = parts[1], parts[2], parts[3]
+    here = callback.message.chat.id
+    chat_id = int(target) if target.lstrip("-").isdigit() else here
     settings = storage.group_settings(chat_id)
     if not await is_group_admin(bot, chat_id, callback.from_user):
         await callback.answer(t("g_admins_only", settings.lang), show_alert=True)
         return
-    _, what, value = (callback.data.split(":", 2) + [""])[:3]      # "gs:mode:warn", "gs:strict"
+    storage.add_manager(chat_id, callback.from_user.id, "" if chat_id != here else (callback.message.chat.title or ""))
     if what == "mode" and value in guard.MODES:
         settings.mode = value
     elif what == "mode":                # a panel posted before the mode buttons existed: next mode
@@ -961,17 +1047,43 @@ async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
         settings.mute = not settings.mute
     elif what == "test":
         settings.test = not settings.test
+    elif what == "newcomers":
+        settings.newcomers = not settings.newcomers
+    elif what == "clean":
+        settings.clean_joins = not settings.clean_joins
     elif what == "log":
         await callback.answer()
-        await bot.send_message(chat_id, log_text(chat_id, settings.lang))
+        await bot.send_message(here, log_text(chat_id, settings.lang))   # in the chat where it was asked
         return
     elif what == "lang":
         settings.lang = LANGS[(LANGS.index(settings.lang) + 1) % len(LANGS)]
     storage.save_group_settings(chat_id, settings)
     await callback.answer()
-    text, markup = settings_view(settings, await chat_info(bot, chat_id))
+    remote = chat_id != here
+    text, markup = settings_view(settings, await chat_info(bot, chat_id), chat_id if remote else None,
+                                 group_title(chat_id) if remote else "")
     with contextlib.suppress(TelegramBadRequest):
         await callback.message.edit_text(text, reply_markup=markup)
+
+
+def group_title(chat_id: int) -> str:
+    row = storage.db.execute("SELECT title FROM group_settings WHERE chat_id = ?", (chat_id,)).fetchone()
+    return (row[0] if row else "") or str(chat_id)
+
+
+@dp.callback_query(F.data.startswith("gp:"))
+async def on_my_group(callback: CallbackQuery, bot: Bot) -> None:
+    """A group picked in "My groups": open its settings panel in the private chat."""
+    if callback.message is None:
+        return
+    chat_id = int(callback.data.split(":", 1)[1])
+    settings = storage.group_settings(chat_id)
+    if not await is_group_admin(bot, chat_id, callback.from_user):
+        await callback.answer(t("g_admins_only", lang_of(callback.from_user)), show_alert=True)
+        return
+    await callback.answer()
+    text, markup = settings_view(settings, await chat_info(bot, chat_id), chat_id, group_title(chat_id))
+    await callback.message.answer(text, reply_markup=markup)
 
 
 @dp.callback_query(F.data.startswith("gu:"))
@@ -1011,6 +1123,11 @@ async def on_bot_status(event: ChatMemberUpdated) -> None:
     if event.chat.type not in (ChatType.GROUP, ChatType.SUPERGROUP):
         return
     gone = ("left", "kicked")
+    if event.new_chat_member.status in gone:
+        storage.forget_group(event.chat.id)
+        return
+    if event.from_user and not event.from_user.is_bot:   # whoever added or promoted the bot manages the group
+        storage.add_manager(event.chat.id, event.from_user.id, event.chat.title or "")
     if event.old_chat_member.status in gone and event.new_chat_member.status not in gone:
         settings = storage.group_settings(event.chat.id)
         settings.lang = lang_of(event.from_user)    # the person who added the bot picks the language
@@ -1176,7 +1293,7 @@ async def on_error(event: ErrorEvent) -> bool:
 
 async def setup_profile(bot: Bot) -> None:
     """Set the description, short description and command menu in every language."""
-    private_cmds = ["start", "help", "sos", "types", "lang", "privacy"]
+    private_cmds = ["start", "help", "groups", "sos", "types", "lang", "privacy"]
     for code in (None, *LANGS):
         lang = code or "uz"
         try:

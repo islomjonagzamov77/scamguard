@@ -306,16 +306,22 @@ T: dict[str, dict[str, str]] = {
         "uz": "🛡 <b>ScamGuard sozlamalari</b>\n\n"
               "Rejim: <b>{mode}</b>\nQat'iy (🟡 shubhalilarni ham o'chirish): <b>{strict}</b>\n"
               "Takrorlovchilarni 24 soatga cheklash: <b>{mute}</b>\n"
+              "🆕 Yangi a'zolar himoyasi (1-kun: havola, forward, 🟡 yo'q): <b>{newcomers}</b>\n"
+              "🧹 «Kirdi / chiqdi» xabarlarini o'chirish: <b>{clean}</b>\n"
               "🧪 Test rejimi (adminlar xabarlari ham tekshiriladi): <b>{test}</b>\n"
               "Shu paytgacha o'chirildi: <b>{deleted}</b>\n\n{rights}",
         "ru": "🛡 <b>Настройки ScamGuard</b>\n\n"
               "Режим: <b>{mode}</b>\nСтрогий (удалять и 🟡 подозрительные): <b>{strict}</b>\n"
               "Блокировать повторных нарушителей на 24 часа: <b>{mute}</b>\n"
+              "🆕 Защита от новичков (1-й день: без ссылок, репостов, 🟡): <b>{newcomers}</b>\n"
+              "🧹 Удалять сообщения «вошёл / вышел»: <b>{clean}</b>\n"
               "🧪 Тестовый режим (проверять и сообщения админов): <b>{test}</b>\n"
               "Удалено всего: <b>{deleted}</b>\n\n{rights}",
         "en": "🛡 <b>ScamGuard settings</b>\n\n"
               "Mode: <b>{mode}</b>\nStrict (also remove 🟡 suspicious): <b>{strict}</b>\n"
               "Mute repeat offenders for 24 hours: <b>{mute}</b>\n"
+              "🆕 Newcomer protection (day 1: no links, forwards, 🟡): <b>{newcomers}</b>\n"
+              "🧹 Delete \"joined / left\" messages: <b>{clean}</b>\n"
               "🧪 Test mode (admins' messages are checked too): <b>{test}</b>\n"
               "Removed so far: <b>{deleted}</b>\n\n{rights}",
     },
@@ -340,6 +346,22 @@ T: dict[str, dict[str, str]] = {
     "g_btn_mode": {"uz": "Rejim", "ru": "Режим", "en": "Mode"},
     "g_btn_strict": {"uz": "Qat'iy", "ru": "Строгий", "en": "Strict"},
     "g_btn_mute": {"uz": "Cheklash", "ru": "Блокировка", "en": "Mute"},
+    "g_btn_newcomers": {"uz": "🆕 Yangilar", "ru": "🆕 Новички", "en": "🆕 Newcomers"},
+    "g_btn_clean": {"uz": "🧹 Kirdi/chiqdi", "ru": "🧹 Вошёл/вышел", "en": "🧹 Joined/left"},
+    "my_groups_title": {
+        "uz": "👥 <b>Siz boshqaradigan guruhlar</b>\nGuruhni tanlang — sozlamalari shu yerda ochiladi.",
+        "ru": "👥 <b>Ваши группы</b>\nВыберите группу — её настройки откроются здесь.",
+        "en": "👥 <b>Your groups</b>\nPick a group to open its settings here.",
+    },
+    "my_groups_empty": {
+        "uz": "👥 Hali guruh yo'q.\n\nBotni quyidagi tugma bilan guruhga qo'shing yoki guruhda /settings yozing — "
+              "guruh shu ro'yxatga tushadi.",
+        "ru": "👥 Групп пока нет.\n\nДобавьте бота в группу кнопкой ниже или напишите /settings в группе — "
+              "она появится в этом списке.",
+        "en": "👥 No groups yet.\n\nAdd the bot to a group with the button below, or type /settings in a group — "
+              "it will appear in this list.",
+    },
+    "btn_groups": {"uz": "👥 Guruhlarim", "ru": "👥 Мои группы", "en": "👥 My groups"},
     "g_btn_test": {"uz": "🧪 Test", "ru": "🧪 Тест", "en": "🧪 Test"},
     "g_btn_log": {"uz": "🗒 Jurnal", "ru": "🗒 Журнал", "en": "🗒 Log"},
     "g_log_title": {
@@ -496,6 +518,8 @@ T: dict[str, dict[str, str]] = {
     "cmd_stats": {"uz": "Statistika", "ru": "Статистика", "en": "Statistics"},
     "cmd_lang": {"uz": "Tilni o'zgartirish", "ru": "Сменить язык", "en": "Change language"},
     "cmd_privacy": {"uz": "Maxfiylik", "ru": "Конфиденциальность", "en": "Privacy"},
+    "cmd_groups": {"uz": "Guruhlarim: himoya va sozlamalar", "ru": "Мои группы: защита и настройки",
+                   "en": "My groups: protection and settings"},
     "cmd_log": {"uz": "O'chirilgan xabarlar jurnali (adminlar)", "ru": "Журнал удалённых сообщений (админы)",
                 "en": "Log of removed messages (admins)"},
     "cmd_settings": {"uz": "Guruh himoyasi sozlamalari (adminlar)", "ru": "Настройки защиты группы (админы)",
