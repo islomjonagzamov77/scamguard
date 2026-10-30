@@ -13,6 +13,8 @@ least important:
     admins can undo a mistake.
   * Repeat offenders (OFFENSES_TO_MUTE deletions in OFFENSE_WINDOW_S) can be muted for MUTE_S if
     the admins switch that on.
+  * Newcomers (NEWCOMER_S since joining): most spam comes from accounts that join and post at once,
+    so for their first day links, forwards from channels and 🟡 messages are removed too.
 """
 
 from __future__ import annotations
@@ -22,11 +24,13 @@ from collections import defaultdict, deque
 from dataclasses import dataclass
 
 from .analyzer import Level
+from .reasons import Reason
 
 MODES = ("delete", "warn", "off")
 OFFENSES_TO_MUTE = 3
 OFFENSE_WINDOW_S = 24 * 3600
 MUTE_S = 24 * 3600
+NEWCOMER_S = 24 * 3600
 
 NONE, WARN, DELETE = "none", "warn", "delete"
 
@@ -39,6 +43,8 @@ class GroupSettings:
     lang: str = "uz"         # language of the bot's messages in this group
     deleted: int = 0         # messages removed so far (shown in /settings)
     test: bool = False       # test mode: admins' messages are checked too (to try the bot alone)
+    newcomers: bool = True   # first day after joining: no links, no forwards from channels, no 🟡
+    clean_joins: bool = False  # delete "X joined / X left" messages
 
 
 def decide(level: Level, signals: list[str], settings: GroupSettings, can_delete: bool) -> str:
@@ -71,3 +77,19 @@ class Offenses:
 
     def clear(self, chat_id: int, sender_id: int) -> None:
         self._hits.pop((chat_id, sender_id), None)
+
+
+def newcomer_break(level: Level, signals: list[str], has_link: bool, forwarded_from_chat: bool) -> bool:
+    """True when a message from someone who joined less than NEWCOMER_S ago should be removed."""
+    suspicious = level == Level.SUSPICIOUS and "needs_context" not in signals
+    return has_link or forwarded_from_chat or suspicious
+
+
+NEWCOMER_REASON = Reason(
+    "yangi a'zo: guruhga qo'shilganiga hali 24 soat bo'lmagan, birinchi kuni havola, kanal forwardi va "
+    "shubhali xabarlar mumkin emas",
+    "new member: joined less than 24 hours ago, and on the first day links, forwards from channels and "
+    "suspicious messages aren't allowed",
+    "новый участник: в группе меньше 24 часов, а в первый день ссылки, репосты из каналов и подозрительные "
+    "сообщения нельзя",
+)

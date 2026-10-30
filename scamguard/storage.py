@@ -9,6 +9,8 @@ Privacy by design:
     model's vector of the masked text (see community.py), not the text.
   * The group log keeps, for 30 days, when a message was removed, the sender's display
     name and the reason, so a group's admins can review removals. Never the message text.
+  * For newcomer protection, when a member joined a group (salted fingerprint, 2 days),
+    and for "My groups", which groups a person manages (salted fingerprint).
 """
 
 from __future__ import annotations
@@ -60,6 +62,13 @@ class Storage:
                 strict INTEGER NOT NULL DEFAULT 0, mute INTEGER NOT NULL DEFAULT 0,
                 lang TEXT NOT NULL DEFAULT 'uz', deleted INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS group_members (
+                chat_id INTEGER NOT NULL, fp TEXT NOT NULL, joined REAL NOT NULL,
+                PRIMARY KEY (chat_id, fp)
+            );
+            CREATE TABLE IF NOT EXISTS group_managers (
+                chat_id INTEGER NOT NULL, fp TEXT NOT NULL, PRIMARY KEY (chat_id, fp)
+            );
             CREATE TABLE IF NOT EXISTS group_log (
                 chat_id INTEGER NOT NULL, ts TEXT NOT NULL, sender TEXT NOT NULL, reason TEXT NOT NULL
             );
@@ -72,10 +81,12 @@ class Storage:
                 user_agreed INTEGER NOT NULL, ts TEXT NOT NULL
             );
         """)
-        try:   # columns added after the first release: older databases get them here
-            self.db.execute("ALTER TABLE group_settings ADD COLUMN test INTEGER NOT NULL DEFAULT 0")
-        except sqlite3.OperationalError:
-            pass   # already there
+        for column in ("test INTEGER NOT NULL DEFAULT 0", "newcomers INTEGER NOT NULL DEFAULT 1",
+                       "clean_joins INTEGER NOT NULL DEFAULT 0", "title TEXT NOT NULL DEFAULT ''"):
+            try:   # columns added after the first release: older databases get them here
+                self.db.execute(f"ALTER TABLE group_settings ADD COLUMN {column}")
+            except sqlite3.OperationalError:
+                pass   # already there
         self.db.commit()
         self._salt = self._load_salt(path.parent / ".salt")
 
@@ -208,25 +219,61 @@ class Storage:
     def group_settings(self, chat_id: int):
         from .guard import GroupSettings
 
-        row = self.db.execute("SELECT mode, strict, mute, lang, deleted, test FROM group_settings WHERE chat_id = ?",
-                              (chat_id,)).fetchone()
+        row = self.db.execute("SELECT mode, strict, mute, lang, deleted, test, newcomers, clean_joins "
+                              "FROM group_settings WHERE chat_id = ?", (chat_id,)).fetchone()
         if row is None:
             return GroupSettings()
-        mode, strict, mute, lang, deleted, test = row
-        return GroupSettings(mode, bool(strict), bool(mute), lang, deleted, bool(test))
+        mode, strict, mute, lang, deleted, test, newcomers, clean_joins = row
+        return GroupSettings(mode, bool(strict), bool(mute), lang, deleted, bool(test), bool(newcomers),
+                             bool(clean_joins))
 
     def save_group_settings(self, chat_id: int, settings) -> None:
         self.db.execute(
-            "INSERT INTO group_settings (chat_id, mode, strict, mute, lang, deleted, test) VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "INSERT INTO group_settings (chat_id, mode, strict, mute, lang, deleted, test, newcomers, clean_joins) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(chat_id) DO UPDATE SET mode = excluded.mode, strict = excluded.strict, "
-            "mute = excluded.mute, lang = excluded.lang, test = excluded.test",
+            "mute = excluded.mute, lang = excluded.lang, test = excluded.test, newcomers = excluded.newcomers, "
+            "clean_joins = excluded.clean_joins",
             (chat_id, settings.mode, int(settings.strict), int(settings.mute), settings.lang, settings.deleted,
-             int(settings.test)))
+             int(settings.test), int(settings.newcomers), int(settings.clean_joins)))
         self.db.commit()
 
     def count_group_deletion(self, chat_id: int) -> None:
         self.db.execute("INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)", (chat_id,))
         self.db.execute("UPDATE group_settings SET deleted = deleted + 1 WHERE chat_id = ?", (chat_id,))
+        self.db.commit()
+
+    # newcomers: when each member joined (salted fingerprint, kept 2 days)
+    def member_joined(self, chat_id: int, user_id: int, when: float) -> None:
+        self.db.execute("INSERT OR REPLACE INTO group_members (chat_id, fp, joined) VALUES (?, ?, ?)",
+                        (chat_id, self._fp(user_id), when))
+        self.db.execute("DELETE FROM group_members WHERE joined < ?", (when - 2 * 86400,))
+        self.db.commit()
+
+    def joined_at(self, chat_id: int, user_id: int) -> float | None:
+        row = self.db.execute("SELECT joined FROM group_members WHERE chat_id = ? AND fp = ?",
+                              (chat_id, self._fp(user_id))).fetchone()
+        return row[0] if row else None
+
+    # "My groups": who manages which group (salted fingerprint), and the group's name
+    def add_manager(self, chat_id: int, user_id: int, title: str) -> None:
+        self.db.execute("INSERT OR IGNORE INTO group_managers (chat_id, fp) VALUES (?, ?)", (chat_id, self._fp(user_id)))
+        self.db.execute("INSERT OR IGNORE INTO group_settings (chat_id) VALUES (?)", (chat_id,))
+        if title:
+            self.db.execute("UPDATE group_settings SET title = ? WHERE chat_id = ?", (title, chat_id))
+        self.db.commit()
+
+    def managed_groups(self, user_id: int) -> list[tuple[int, str, int]]:
+        """(chat_id, title, removed so far) for the groups this person manages."""
+        return self.db.execute(
+            "SELECT m.chat_id, COALESCE(g.title, ''), COALESCE(g.deleted, 0) FROM group_managers m "
+            "LEFT JOIN group_settings g ON g.chat_id = m.chat_id WHERE m.fp = ? ORDER BY g.deleted DESC",
+            (self._fp(user_id),)).fetchall()
+
+    def forget_group(self, chat_id: int) -> None:
+        """The bot left or was removed: the group disappears from everyone's list."""
+        self.db.execute("DELETE FROM group_managers WHERE chat_id = ?", (chat_id,))
+        self.db.execute("DELETE FROM group_members WHERE chat_id = ?", (chat_id,))
         self.db.commit()
 
     LOG_DAYS = 30

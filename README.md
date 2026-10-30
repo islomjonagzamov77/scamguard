@@ -165,7 +165,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 275 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
+python -m pytest                   # 285 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
 python -m scamguard.semantic download   # the multilingual transformer (~240 MB, optional)
 python train.py                    # train both AI models and print the evaluation
 python benchmark.py                # how well each AI model handles scam types it never saw
@@ -189,8 +189,13 @@ python bot.py
 | Strict | off | also delete 🟡 suspicious messages (archives, macro documents, softer scam signs) |
 | Mute | off | after 3 removed messages in 24 hours, the sender can't write for 24 hours |
 | Language | the language of whoever added the bot | language of the bot's messages in the group |
+| 🆕 Newcomers | on | for 24 hours after joining, a member's links, forwards from channels and 🟡 messages are removed: most spam comes from accounts that join and post at once |
+| 🧹 Joined/left | off | delete "X joined / X left" messages |
 | 🧪 Test | off | admins' messages are checked too, to try the bot (or demo it) without a second account |
 | 🗒 Log | | the last removals of 30 days: when, who, why. Also `/log`. Never the message text |
+
+**👥 My groups**: in the private chat, `/groups` (or the menu button) lists the groups you manage with how many scams
+were removed in each, and opens their settings right there. A group appears once you add the bot or type `/settings` in it.
 
 What it catches beyond the file name:
 - an **.apk hidden inside a .zip**, also when the archive is password-protected (the names inside stay readable;
@@ -321,6 +326,7 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
   muting of repeat offenders and edited-message checks (`scamguard/guard.py`)
 - [x] Finds apps hidden in archives or renamed, explains what a removed app would do, removal log for admins,
   test mode, one-tap "add to group" with the rights pre-ticked
+- [x] Newcomer protection (first day: no links, channel forwards or 🟡), joined/left cleanup, "My groups" dashboard
 - [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
 - [x] Threat feed of detected fake sites (`/api/v1/feed.txt` for DNS filters, `/api/v1/feed.json` for banks and CERTs)
 - [x] Check a message on the website and in the Telegram Mini App; public `POST /api/v1/check` API
