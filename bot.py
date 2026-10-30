@@ -62,6 +62,7 @@ from scamguard import apk, blocklist, community, guard, ocr, radar, reputation, 
 from scamguard.analyzer import DANGEROUS_AT, SUSPICIOUS_AT, Level, analyze
 from scamguard.files import APK_REASON, MAX_SNIFF_BYTES, FileVerdict, check_file, look_inside, needs_look_inside
 from scamguard.reasons import Reason
+from scamguard.rules import APK_FILE_REASON
 from scamguard.i18n import LANG_NAMES, LANGS, SCAM_TYPES, all_variants, guess_lang, t
 from scamguard.storage import Storage
 from scamguard.web import server as radar_web
@@ -425,7 +426,9 @@ def evaluate(message: Message, extra_text: str = "", app: AppCheck | None = None
     levels = [lv for lv in (file_level, verdict.level if verdict else None) if lv is not None] or [Level.SAFE]
     level = max(levels, key=LEVEL_ORDER.index)
     if verdict:
-        reasons += verdict.reasons
+        # the file check already explained the .apk; the same warning from its name in the text would repeat it
+        file_said_apk = file_level == Level.DANGEROUS and doc is not None and apk.is_apk_name(doc.file_name, doc.mime_type)
+        reasons += [r for r in verdict.reasons if not (file_said_apk and r is APK_FILE_REASON)]
         score = verdict.score
     if file_level == Level.DANGEROUS:
         score = max(score, 0.95)
@@ -589,6 +592,13 @@ async def cmd_share(message: Message) -> None:
 @private.message(Command("privacy"))
 async def cmd_privacy(message: Message) -> None:
     await message.answer(t("privacy", lang_of(message.from_user)))
+
+
+@private.message(Command("settings", "log", "check", "report"))
+async def private_group_command(message: Message) -> None:
+    """Group commands typed in the private chat: say where they work instead of checking the text."""
+    lang = lang_of(message.from_user)
+    await message.answer(t("group_only", lang), reply_markup=add_to_group_keyboard(lang))
 
 
 @private.message(F.text | F.caption | F.document | F.photo)

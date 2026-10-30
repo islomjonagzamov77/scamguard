@@ -17,6 +17,14 @@ from .reasons import Reason
 from .textnorm import variants
 
 
+# Also used by the bot to avoid saying the same thing twice when the file itself is an .apk.
+APK_FILE_REASON = Reason(
+    ".apk fayl — bu rasm yoki hujjat emas, telefonga o'rnatiladigan dastur. Ochmang!",
+    "An .apk file is an installable Android app, not a photo or document. Don't open it!",
+    "Файл .apk — это не фото и не документ, а устанавливаемое приложение. Не открывайте!",
+)
+
+
 @dataclass(frozen=True)
 class Rule:
     name: str
@@ -150,11 +158,7 @@ RULES: list[Rule] = [
         "Promises easy, fast money",
         "Обещают лёгкие и быстрые деньги",
     )),
-    Rule("apk_file", 0.7, _r(r"\.apk\b"), Reason(
-        ".apk fayl — bu rasm yoki hujjat emas, telefonga o'rnatiladigan dastur. Ochmang!",
-        "An .apk file is an installable Android app, not a photo or document. Don't open it!",
-        "Файл .apk — это не фото и не документ, а устанавливаемое приложение. Не открывайте!",
-    )),
+    Rule("apk_file", 0.7, _r(r"\.apk\b"), APK_FILE_REASON),
     Rule("install_app", 0.4, _r(
         r"ilova(?:ni)? (?:yuklab ol|o'rnat)", r"dastur(?:ni)? o'rnat",
         r"rasm(?:lar)?(?:ni)? ko'r", r"foto ko'r",

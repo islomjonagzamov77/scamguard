@@ -349,6 +349,17 @@ T: dict[str, dict[str, str]] = {
     "g_log_empty": {
         "uz": "🗒 Hali hech narsa o'chirilmadi.", "ru": "🗒 Пока ничего не удалено.", "en": "🗒 Nothing removed yet.",
     },
+    "group_only": {
+        "uz": "👥 Bu buyruq <b>guruh ichida</b> ishlaydi. Guruhingizga o'ting va u yerda <b>/settings</b> (sozlamalar) "
+              "yoki <b>/log</b> (o'chirilganlar jurnali) yozing. Siz guruh admini bo'lishingiz kerak.\n\n"
+              "Bot hali guruhda bo'lmasa, quyidagi tugma bilan qo'shing — kerakli huquqlar o'zi belgilanadi.",
+        "ru": "👥 Эта команда работает <b>внутри группы</b>. Откройте свою группу и напишите там <b>/settings</b> "
+              "(настройки) или <b>/log</b> (журнал удалений). Нужно быть админом группы.\n\n"
+              "Если бота ещё нет в группе, добавьте его кнопкой ниже — нужные права отметятся сами.",
+        "en": "👥 This command works <b>inside a group</b>. Open your group and type <b>/settings</b> (settings) "
+              "or <b>/log</b> (removal log) there. You need to be a group admin.\n\n"
+              "If the bot isn't in the group yet, add it with the button below — the rights it needs are pre-ticked.",
+    },
     "add_group_btn": {"uz": "➕ Guruhga qo'shish", "ru": "➕ Добавить в группу", "en": "➕ Add to a group"},
     "g_btn_lang": {"uz": "🌐 Til", "ru": "🌐 Язык", "en": "🌐 Language"},
     "group_warn": {

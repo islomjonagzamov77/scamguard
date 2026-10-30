@@ -757,3 +757,21 @@ def test_help_has_one_tap_add_to_group_with_rights(env):
     feed({"message": msg("/help")})
     url = calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0].url
     assert url == "https://t.me/scamguard_test_bot?startgroup=guard&admin=delete_messages+restrict_members"
+
+
+def test_group_commands_in_private_chat_explain_where_they_work(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    for command in ("/settings", "/log"):
+        reply = feed({"message": msg(command)})
+        assert "inside a group" in reply and "No signs" not in reply
+        assert calls_named(session, "SendMessage")[-1].reply_markup.inline_keyboard[0][0].url.startswith(
+            "https://t.me/scamguard_test_bot?startgroup=")
+
+
+def test_apk_warning_is_not_repeated(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    doc = Document(file_id="d9", file_unique_id="u9", file_name="linebet.apk", file_size=46_000_000)
+    reply = feed({"message": msg("LINEBET APK", document=doc)})
+    assert reply.count("installable Android app") == 1
