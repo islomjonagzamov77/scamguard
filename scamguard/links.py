@@ -38,6 +38,20 @@ OFFICIAL_DOMAINS: dict[str, set[str]] = {
     "elyurt": {"el-yurt.uz"},
 }
 
+# Brands that are real companies in other countries too: olx.kz, olx.ua, google.ru are theirs, not fakes.
+INTERNATIONAL_BRANDS = {"olx", "google", "telegram", "instagram"}
+# Service domains of those brands (APIs, files, CDNs) that don't carry the brand as a whole label.
+BRAND_SERVICE_DOMAINS = {
+    "googleapis.com", "googleusercontent.com", "gstatic.com", "googlevideo.com", "googledrive.com",
+    "googlesyndication.com", "googletagmanager.com", "telegram-cdn.org", "cdninstagram.com", "olxgroup.com",
+}
+# Words scammers glue to a brand name in one label ("clickuz", "paymebonus", "uzumbank").
+BAIT_AFFIXES = {
+    "uz", "uzb", "bonus", "pay", "pul", "login", "verify", "secure", "karta", "card", "bank", "gift", "prize",
+    "sovga", "sovg'a", "yutuq", "aksiya", "promo", "support", "help", "online", "app", "my", "web", "id",
+    "auth", "official", "rasmiy", "oplata", "cash", "money", "kabinet", "cabinet", "account", "premium",
+}
+
 BRAND_LABELS = {"olx": "OLX", "mygov": "my.gov.uz", "elyurt": "El-yurt umidi", "tbcbank": "TBC Bank",
                 "xalqbank": "Xalq banki", "uzcard": "Uzcard", "kapitalbank": "Kapitalbank"}
 
@@ -78,7 +92,7 @@ _URL_RE = re.compile(
     \b(
       (?:https?://|www\.)[^\s<>"']+                       # explicit URLs
       |
-      (?:[a-z0-9-]+\.)+(?:[a-z]{2,24}|xn--[a-z0-9-]+)      # bare domains like click-bonus.xyz
+      (?:[a-z0-9-]{1,63}\.){1,10}(?:[a-z]{2,24}|xn--[a-z0-9-]+)   # bare domains like click-bonus.xyz (bounded: linear time)
       (?:/[^\s<>"']*)?
     )""",
 )
@@ -164,16 +178,46 @@ def _levenshtein(a: str, b: str) -> int:
     return prev[-1]
 
 
+def _is_brand_abroad(host: str) -> bool:
+    """A brand's own site in another country or its service domain (olx.kz, google.ru, googleapis.com)."""
+    domain = _registered_domain(host)
+    label, tld = domain.split(".", 1)[0], domain.rsplit(".", 1)[-1]
+    return domain in BRAND_SERVICE_DOMAINS or (label in INTERNATIONAL_BRANDS and tld not in SUSPICIOUS_TLDS)
+
+
+def _words(host: str) -> list[str]:
+    """Words a reader sees in a host name: every label and hyphen part, plus adjacent hyphen parts
+    joined ("el-yurt-grant" -> el, yurt, grant, elyurt, yurtgrant)."""
+    words = []
+    for label in host.translate(_HOMOGLYPHS).replace("rn", "m").split("."):
+        parts = [p for p in label.split("-") if p]
+        words += parts
+        words += [a + b for a, b in zip(parts, parts[1:])]
+    return words
+
+
+def _imitates(word: str, brand: str) -> bool:
+    """The word is the brand, a one-letter typo of it, or the brand glued to a bait word
+    ("clickuz", "paymebonus"). Other words that merely contain it (clickhouse, humor,
+    paymentwall, googleapis) are different names, not imitations."""
+    if word == brand:
+        return True
+    if len(brand) >= 5 and abs(len(word) - len(brand)) <= 1 and _levenshtein(word, brand) == 1:
+        return True
+    if word.startswith(brand):
+        return word[len(brand):] in BAIT_AFFIXES
+    if word.endswith(brand):
+        return word[:-len(brand)] in BAIT_AFFIXES
+    return False
+
+
 def _impersonated_brand(host: str) -> str | None:
     """Return the brand a non-official host seems to imitate, if any."""
-    labels = re.split(r"[.-]", host.translate(_HOMOGLYPHS).replace("rn", "m"))
-    joined = "".join(labels)
+    if _is_brand_abroad(host):
+        return None
+    words = _words(host)
     for brand in OFFICIAL_DOMAINS:
-        if brand in joined:
-            return brand
-        if len(brand) >= 5 and any(
-            abs(len(lbl) - len(brand)) <= 1 and _levenshtein(lbl, brand) == 1 for lbl in labels
-        ):
+        if any(_imitates(w, brand) for w in words):
             return brand
     return None
 

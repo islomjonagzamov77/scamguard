@@ -197,17 +197,29 @@ def parse_manifest(buf: bytes, report: ApkReport) -> None:
             n = (csize - hsize) // 4
             res_ids = list(struct.unpack_from(f"<{n}I", buf, pos + hsize))
         elif ctype == 0x0102:                                    # start of an element
-            _, name_i, attr_start, attr_size, attr_count = struct.unpack_from("<IIHHH", buf, pos + 16)
+            # Android finds the element's attributes after the header, whatever size the header
+            # claims; malware pads it so tools that assume 16 bytes read garbage.
+            ext = pos + max(hsize, 16)
+            if hsize != 16 and "padded element header" not in report.tolerated:
+                report.tolerated.append("padded element header")
+            _, name_i, attr_start, attr_size, attr_count = struct.unpack_from("<IIHHH", buf, ext)
             tag = strings[name_i] if name_i < len(strings) else ""
             attrs = {}
-            a = pos + 16 + attr_start
+            a = ext + attr_start
             for _ in range(min(attr_count, 1000)):
                 _ns, aname_i, raw_i, _sz, _r, dtype, data = struct.unpack_from("<IIIHBBI", buf, a)
                 a += attr_size or 20
                 key = ATTR_NAME_IDS.get(res_ids[aname_i]) if aname_i < len(res_ids) else None
                 if key is None and aname_i < len(strings):
                     key = strings[aname_i]
-                value = strings[raw_i] if raw_i < len(strings) else (strings[data] if dtype == 3 and data < len(strings) else "")
+                # Android reads the typed value; the raw copy is only a hint and malware points it
+                # at a harmless string ("INTERNET") to hide "READ_SMS" from analysis tools.
+                if dtype == 3 and data < len(strings):
+                    value = strings[data]
+                    if raw_i < len(strings) and raw_i != data and "decoy attribute value" not in report.tolerated:
+                        report.tolerated.append("decoy attribute value")
+                else:
+                    value = strings[raw_i] if raw_i < len(strings) else ""
                 if key:
                     attrs[key] = value
                 if key == "package" and tag == "manifest":

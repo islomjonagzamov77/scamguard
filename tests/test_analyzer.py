@@ -37,6 +37,22 @@ def test_lookalike_domains(host):
     assert analyze_url(f"https://{host}/login").score >= 0.7
 
 
+# Real sites whose names merely contain a brand, and brands' own sites abroad: not fakes.
+@pytest.mark.parametrize("host", [
+    "clickhouse.com", "openclick.io", "humor.com", "paymentwall.com", "olx.kz", "olx.ua", "olx.com.br",
+    "google.ru", "googleapis.com", "storage.googleapis.com", "googleusercontent.com", "gstatic.com",
+])
+def test_names_containing_a_brand_are_not_lookalikes(host):
+    report = analyze_url(f"https://{host}/")
+    assert "lookalike_site" not in report.signals
+    assert analyze(f"Ссылка: https://{host}/", use_model=False).level != Level.DANGEROUS
+
+
+@pytest.mark.parametrize("host", ["clickuz.top", "paymeuz.com", "uzumbank.com", "el-yurt-grant.xyz", "olx.xyz"])
+def test_brand_glued_to_bait_words_is_a_lookalike(host):
+    assert "lookalike_site" in analyze_url(f"https://{host}/").signals
+
+
 @pytest.mark.parametrize("url", ["https://click.uz", "https://my.click.uz/pay", "olx.uz/d/item", "https://t.me/durov"])
 def test_official_domains_are_clean(url):
     assert analyze_url(url).score == 0
@@ -76,3 +92,12 @@ def test_file_checks(name, expected):
 def test_file_names_are_not_links():
     assert extract_urls("EL YURT 1-xona ANSWERS.pdf") == []
     assert analyze("EL YURT 1-xona ANSWERS.pdf", use_model=False).level == Level.SAFE
+
+
+@pytest.mark.parametrize("text", ["1" * 4000, "99 " * 1333, "a." * 2000, "http://" + "a." * 1990, "x1." * 1333])
+def test_long_hostile_messages_are_fast(text):
+    """The checks run on the bot's event loop: a 4000-character message must never stall it."""
+    import time
+    start = time.perf_counter()
+    analyze(text, use_model=False)
+    assert time.perf_counter() - start < 0.15

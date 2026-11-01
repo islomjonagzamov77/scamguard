@@ -258,6 +258,39 @@ def test_report_needs_two_people_then_warns_everyone(env):
     assert botmod.storage.stats(2)["blocked"] >= 2
 
 
+def test_a_few_reports_only_warn_many_make_it_dangerous(env):
+    """Two fake accounts must not be able to get someone's number marked 🔴 (and their messages removed
+    from groups): reports alone give 🟡 until STRONG_REPORTS different people agree."""
+    botmod, session, feed = env
+    innocent = "Hi, call me at +998 90 111 22 33 about the sofa"
+    reporters = [User(id=900 + i, is_bot=False, first_name="R", language_code="en") for i in range(5)]
+    for user in reporters:
+        botmod.storage.set_lang(user.id, "en")
+    botmod.storage.set_lang(USER.id, "en")
+
+    for user in reporters[:2]:
+        feed({"message": msg(SCAM)})
+        press_report(feed, session, user)
+    reply = feed({"message": msg(innocent)})
+    assert "2 users reported" in reply and "🟡" in reply and "🔴" not in reply
+
+    for user in reporters[2:]:
+        feed({"message": msg(SCAM)})
+        press_report(feed, session, user)
+    assert "🔴" in feed({"message": msg(innocent)})
+
+
+def test_old_reports_stop_counting(env):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    for user in (USER, OTHER_USER):
+        feed({"message": msg(SCAM)})
+        press_report(feed, session, user)
+    botmod.storage.db.execute("UPDATE reports SET ts = '2020-01-01T00:00:00+00:00'")
+    assert "users reported" not in feed({"message": msg("Hi, call me at +998 90 111 22 33 about the sofa")})
+    assert botmod.storage.stats(2)["blocked"] == 0 and botmod.storage.community_sites(2, 10) == []
+
+
 @pytest.mark.skipif(not __import__("scamguard.semantic").semantic.encoder_available(),
                     reason="needs the semantic encoder")
 def test_bot_learns_a_new_scam_wave_from_two_reports(env):

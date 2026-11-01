@@ -250,3 +250,55 @@ def test_hostile_chunk_size_does_not_hang():
 def test_too_large_file_is_refused():
     with pytest.raises(apk.NotAnApk):
         apk.inspect_apk(b"PK" + b"\0" * (apk.MAX_APK_BYTES + 1))
+
+
+# ---------- tricks that hide permissions from tools but not from Android ----------
+
+QUIET_TROJAN = build_manifest("uz.photo.viewer", permissions=[
+    P + "INTERNET", P + "READ_SMS", P + "RECEIVE_SMS", P + "SYSTEM_ALERT_WINDOW", P + "REQUEST_INSTALL_PACKAGES"])
+
+
+def _chunks(m):
+    pos = 8
+    while pos + 8 <= len(m):
+        ctype, hsize, size = struct.unpack_from("<HHI", m, pos)
+        yield pos, ctype, hsize, size
+        pos += size
+
+
+def pad_element_headers(m, extra=8):
+    """Element chunks claim a bigger header; Android finds the attributes after headerSize."""
+    body = b""
+    for pos, ctype, hsize, size in _chunks(m):
+        chunk = m[pos:pos + size]
+        if ctype == 0x0102:
+            node, ext = chunk[8:16], chunk[16:]
+            chunk = struct.pack("<HHI", ctype, 16 + extra, 16 + extra + len(ext)) + node + b"\0" * extra + ext
+        body += chunk
+    return m[:4] + struct.pack("<I", 8 + len(body)) + body
+
+
+def decoy_raw_values(m, decoy=P + "INTERNET"):
+    """Raw values point at a harmless permission; the typed value Android reads stays the real one."""
+    m, strings = bytearray(m), []
+    for pos, ctype, hsize, size in _chunks(bytes(m)):
+        if ctype == 0x0001:
+            strings = apk._read_string_pool(bytes(m), pos, hsize)
+        elif ctype == 0x0102:
+            _, _, attr_start, attr_size, attr_count = struct.unpack_from("<IIHHH", m, pos + 16)
+            a = pos + 16 + attr_start
+            for _ in range(attr_count):
+                raw = struct.unpack_from("<I", m, a + 8)[0]
+                if raw < len(strings) and strings[raw].startswith(P):
+                    struct.pack_into("<I", m, a + 8, strings.index(decoy))
+                a += attr_size
+    return bytes(m)
+
+
+@pytest.mark.parametrize("trick", [pad_element_headers, decoy_raw_values])
+def test_hidden_permissions_are_still_found(trick):
+    report = apk.inspect_apk(build_apk(trick(QUIET_TROJAN)))
+    signals = apk.report_signals(report)
+    for expected in ("apk_reads_sms", "apk_overlay", "apk_installs_apps", "apk_evasion"):
+        assert expected in signals
+    assert apk.report_reasons(report)[0] is not apk.NOTHING_FOUND

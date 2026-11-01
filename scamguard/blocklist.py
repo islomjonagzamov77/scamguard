@@ -17,6 +17,19 @@ from dataclasses import dataclass
 from .links import SHORTENERS, _host_of, _is_official, _registered_domain, extract_urls
 
 REPORT_THRESHOLD = int(os.getenv("SCAMGUARD_REPORT_THRESHOLD", "2"))
+# Telegram accounts are cheap, so a few "different people" can be one person. Reports alone therefore
+# give 🟡 (a warning, never removed from groups by default). Only many reporters make it 🔴.
+STRONG_REPORTS = int(os.getenv("SCAMGUARD_STRONG_REPORTS", "5"))
+WEAK_WEIGHT = 0.5      # enough for 🟡 on its own, not for 🔴
+STRONG_WEIGHT = 0.8    # 🔴 on its own
+REPORT_DAYS = 90       # numbers and accounts change hands; old reports stop counting
+
+
+def report_weight(reporters: int) -> float:
+    """Evidence from `reporters` different people reporting the same site, number or account."""
+    if reporters < REPORT_THRESHOLD:
+        return 0.0
+    return STRONG_WEIGHT if reporters >= STRONG_REPORTS else WEAK_WEIGHT
 
 # Big platforms: never blocklist the whole domain (a scam page there is reported by full URL instead).
 PLATFORMS = {

@@ -57,7 +57,7 @@ _ASK_VERB = _r(
 )
 # "I need money" is an ask too, even without an imperative ("srochno pul kerak", "I need only $800")
 _NEED = _r(
-    r"\bpul (?:kerak|zarur|juda kerak)", r"\bpulga muhtoj", r"\d[\d\s.,]*\s?(?:\$|dollar|so'm|ming|mln)\S*\s+kerak\b",
+    r"\bpul (?:kerak|zarur|juda kerak)", r"\bpulga muhtoj", r"\d[\d\s.,]{0,20}\s?(?:\$|dollar|so'm|ming|mln)\S*\s+kerak\b",
     r"нужны деньги", r"деньги нужны", r"срочно нужн", r"нужн\w* \d",
     r"\bneed (?:the |some )?money\b", r"\bneed (?:only |just )?(?:\$|usd ?)?\d",
 )

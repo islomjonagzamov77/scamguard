@@ -11,6 +11,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from aiogram.types import User
 from aiohttp.test_utils import TestClient, TestServer
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -70,12 +71,12 @@ def test_check_safe_message_and_languages(env):
     assert ru["level"] != "safe" and "Пугают" in " ".join(ru["reasons"])
 
 
-def test_check_feeds_the_radar_but_stores_no_text(env, tmp_path):
+def test_check_counts_on_the_radar_but_stores_no_text(env, tmp_path):
     botmod, session, feed = env
     secret = "Ona, bu men, yangi raqamim +998 90 555 44 33, kartamga 8600 1234 5678 9012 pul tashla tezda"
     call(app_for(botmod), [check(GRANT_SCAM, "uz"), check(secret, "uz")])
     data = radar.build(botmod.storage, 2)
-    assert data["daily"][-1]["checks"] == 2 and data["sites"][0]["site"] == "el-yurt-grant[.]xyz"
+    assert data["daily"][-1]["checks"] == 2 and data["sites"] == []   # anyone can paste a domain here
     dump = "\n".join(sqlite3.connect(tmp_path / "t.db").iterdump())
     for leak in ("555 44", "5678", "8600", "yangi raqamim", "grantini yutdingiz"):
         assert leak not in dump, f"stored: {leak}"
@@ -159,7 +160,10 @@ def test_feed_lists_fake_sites_only(env):
     for user in (USER, OTHER_USER):                          # 2 people report the same scam -> community entry
         feed({"message": msg(SCAM)})
         press_report(feed, session, user)
-    feed({"message": msg(GRANT_SCAM + " Rasmiy sayt: el-yurt.uz, batafsil: bit.ly/abc")})
+    for uid in (501, 502, 503):                              # the bot flags the site for 3 different people
+        sender = User(id=uid, is_bot=False, first_name="U", language_code="en")
+        feed({"message": msg(GRANT_SCAM + " Rasmiy sayt: el-yurt.uz, batafsil: bit.ly/abc").model_copy(
+            update={"from_user": sender})})
     (s1, h1, txt), (s2, h2, js) = call(app_for(botmod), [("GET", "/api/v1/feed.txt", {}), ("GET", "/api/v1/feed.json", {})])
     assert s1 == 200 and h1["Content-Type"].startswith("text/plain") and h1["Access-Control-Allow-Origin"] == "*"
     lines = [l for l in txt.decode().splitlines() if l and not l.startswith("#")]
@@ -169,10 +173,27 @@ def test_feed_lists_fake_sites_only(env):
     by = {e["indicator"]: e for e in data["indicators"]}
     assert s2 == 200 and data["count"] == len(data["indicators"])
     assert by["el-yurt-grant.xyz"]["source"] == "auto" and by["el-yurt-grant.xyz"]["type"] == "domain"
-    assert by["olx-pay-uz.top"]["reporters"] == 2 and by["olx-pay-uz.top"]["source"] == "both"
+    assert by["olx-pay-uz.top"]["reporters"] == 2 and by["olx-pay-uz.top"]["source"] == "community"   # bot saw it for only 2 people
     body = txt.decode() + js.decode()
     for secret in ("998", "901112233", "8600", "@", str(USER.id)):
         assert secret not in body, f"leaked: {secret}"
+
+
+def test_feed_needs_more_than_one_detection(env):
+    """A DNS filter blocks whatever is in the feed, so a single check, many checks by one person or any
+    number of web API checks never list a domain; an online service confirming it does."""
+    botmod, session, feed = env
+    for _ in range(5):
+        feed({"message": msg(GRANT_SCAM)})                      # the same person, again and again
+    app = app_for(botmod)
+    call(app, [check("Click bonus: c1ick-bonus.online"), check("c1ick-bonus.online")])
+    botmod.storage.record_domain("confirmed-scam.xyz", USER.id, confirmed=True)
+    botmod.storage.record_domain("olx.kz", 1)                 # a brand's own site abroad, even if it slipped in
+    botmod.storage.record_domain("olx.kz", 2)
+    botmod.storage.record_domain("olx.kz", 3)
+    (_, _, txt), = call(app_for(botmod), [("GET", "/api/v1/feed.txt", {})])
+    lines = [l for l in txt.decode().splitlines() if l and not l.startswith("#")]
+    assert lines == ["confirmed-scam.xyz"]
 
 
 def test_feed_text_keeps_platform_pages_out_of_the_domain_list():
