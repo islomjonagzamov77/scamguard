@@ -116,18 +116,22 @@ class Result:
     domains: list = field(default_factory=list)   # fake-site domains found (for the radar)
     links: list = field(default_factory=list)     # LinkReports, for the online checks (memory only)
     app_sha256: str = ""                          # hash of an inspected .apk, for VirusTotal
+    confirmed: list = field(default_factory=list)  # domains Google Safe Browsing / VirusTotal also flag
 
 
-def record(r: "Result") -> None:
-    """Count a check in the anonymous stats and the public radar (category + fake-site domains only)."""
+def record(r: "Result", seen_by: int | None = None, domains: bool = True) -> None:
+    """Count a check in the anonymous stats and the public radar (category + fake-site domains only).
+    `seen_by`: whose message or check it was, so the threat feed can require different people.
+    `domains=False` for the public web API: anyone can paste any domain there, so its checks never
+    put a site on the radar or in the feed."""
     if "needs_context" in r.signals:        # a "can't tell" question is not a detected scam on the radar
         storage.record_check("safe")
         return
     storage.record_check(r.level.value)
     if r.level != Level.SAFE:
         storage.record_category(radar.primary_category(r.signals))
-        for d in r.domains:
-            storage.record_domain(d)
+        for d in r.domains if domains else []:
+            storage.record_domain(d, seen_by, confirmed=d in r.confirmed)
 
 
 _pending: OrderedDict[str, Pending] = OrderedDict()           # button key -> Pending
@@ -361,19 +365,17 @@ def level_for(score: float) -> Level:
     return Level.DANGEROUS if score >= DANGEROUS_AT else Level.SUSPICIOUS if score >= SUSPICIOUS_AT else Level.SAFE
 
 
-BLOCKLIST_WEIGHT = 0.8   # a site, number or account that enough people reported
-
-
 def community_reasons(text: str, forward) -> list[tuple[Reason, float]]:
     """Warnings (with their weight) for indicators, and for messages like this one, that enough
     different people have reported."""
     indicators = blocklist.extract(text, forward, {BOT_USERNAME.lower()})
     hits = []
-    for ind, n in storage.report_counts(indicators).items():
-        if n >= blocklist.REPORT_THRESHOLD:
+    for ind, n in storage.report_counts(indicators, storage.reports_since()).items():
+        weight = blocklist.report_weight(n)
+        if weight:
             key = f"hit_{ind.kind}"
             hits.append((Reason(t(key, "uz", n=n, preview=ind.preview), t(key, "en", n=n, preview=ind.preview),
-                                t(key, "ru", n=n, preview=ind.preview)), BLOCKLIST_WEIGHT))
+                                t(key, "ru", n=n, preview=ind.preview)), weight))
     n = memory.reporters_of_similar(text)
     if n >= blocklist.REPORT_THRESHOLD:
         hits.append((Reason(t("hit_similar", "uz", n=n), t("hit_similar", "en", n=n), t("hit_similar", "ru", n=n)),
@@ -467,6 +469,7 @@ async def add_online_checks(result: Result) -> Result:
     result.level = max(result.level, level_for(result.score), key=LEVEL_ORDER.index)
     result.signals = list(result.signals) + found.signals
     result.domains = list(result.domains) + [d for d in found.confirmed_domains if d not in result.domains]
+    result.confirmed = list(found.confirmed_domains)
     if result.level != Level.SAFE:
         result.trust = []
     return result
@@ -499,7 +502,7 @@ async def web_check(text: str, lang: str) -> dict:
     AI model, community blocklist, online reputation). The text is not stored; like every bot check,
     only the anonymous counts, the scam category and fake-site domains reach the radar."""
     result = await add_online_checks(evaluate_text(text))
-    record(result)
+    record(result, domains=False)
     return verdict_json(result, lang)
 
 
@@ -639,7 +642,7 @@ async def on_check(message: Message) -> None:
         await message.reply(t("empty", lang))
         return
     result = await add_online_checks(result)
-    record(result)
+    record(result, message.from_user.id)
     doc = message.document
     reply = render(lang, result, doc.file_name if doc else None, forward_source(message), ocr_text)
     markup = verdict_keyboard(remember(result), lang) if (result.text or result.forward) else None
@@ -665,7 +668,7 @@ async def group_check(message: Message) -> None:
         await message.reply(t("empty", lang))
         return
     result = await add_online_checks(result)
-    record(result)
+    record(result, message.from_user.id if message.from_user else None)
     doc = target.document
     await target.reply(render(lang, result, doc.file_name if doc else None), disable_web_page_preview=True)
 
@@ -865,7 +868,7 @@ async def guard_message(message: Message, bot: Bot, edited: bool = False) -> Non
     if result is None:
         return
     if not edited:
-        record(result)
+        record(result, sender_of(message)[0])
     settings = storage.group_settings(message.chat.id)
     newcomer_hit = is_newcomer(message, settings) and guard.newcomer_break(
         result.level, result.signals, has_link(message, result), forwarded_from_chat(message))
@@ -1175,7 +1178,7 @@ async def on_inline(query: InlineQuery) -> None:
 async def on_inline_chosen(chosen: ChosenInlineResult) -> None:
     """Counts inline checks in the stats (needs /setinlinefeedback in @BotFather)."""
     if chosen.result_id != "help":
-        record(evaluate_text(chosen.query))
+        record(evaluate_text(chosen.query), chosen.from_user.id)
 
 
 # ======================= callbacks =======================

@@ -14,7 +14,7 @@ import os
 from datetime import date, datetime, timedelta, timezone
 
 from .i18n import SCAM_TYPES
-from .links import SHORTENERS, _is_official, _registered_domain
+from .links import SHORTENERS, _is_brand_abroad, _is_official, _registered_domain
 
 SHOW_TOTALS_FROM = int(os.getenv("SCAMGUARD_SHOW_TOTALS_FROM", "100"))
 TREND_DAYS = 30
@@ -57,11 +57,19 @@ def scam_domains(links) -> list[str]:
     return out
 
 
+def _never_listed(host: str) -> bool:
+    """Official sites, shorteners and big brands' own domains (olx.kz, googleapis.com) are never in the feed."""
+    return _is_official(host) or host in SHORTENERS or _is_brand_abroad(host)
+
+
 def defang(domain: str) -> str:
     return domain.replace(".", "[.]")
 
 
 FEED_MAX = 500
+# DNS filters block whatever is in the feed, so one detection is not enough: a domain the bot flagged
+# must also be confirmed by Google Safe Browsing / VirusTotal, or turn up for this many different people.
+FEED_MIN_PEOPLE = int(os.getenv("SCAMGUARD_FEED_MIN_PEOPLE", "3"))
 
 
 def feed(storage, report_threshold: int, limit: int = FEED_MAX) -> list[dict]:
@@ -69,18 +77,19 @@ def feed(storage, report_threshold: int, limit: int = FEED_MAX) -> list[dict]:
 
     Unlike the page, the indicators are NOT defanged (machines read this, not people), and no
     phone numbers or Telegram accounts are ever included, same as the radar. A domain is listed
-    when the bot itself flagged it as clearly malicious, or when enough different people reported it.
+    when the bot flagged it and an online service or FEED_MIN_PEOPLE different people back that up,
+    or when enough different people reported it. Checks from the public web API never count.
     """
     entries: dict[str, dict] = {}
-    for domain, first_seen, last_seen, hits in storage.recent_domains(limit):
-        if _is_official(domain) or domain in SHORTENERS:     # defence in depth: never list a real site
+    for domain, first_seen, last_seen, hits in storage.feed_domains(FEED_MIN_PEOPLE, limit):
+        if _never_listed(domain):                            # defence in depth: never list a real site
             continue
         entries[domain] = {"indicator": domain, "type": "domain", "first_seen": first_seen, "last_seen": last_seen,
                            "detections": hits, "reporters": 0, "source": "auto"}
     for preview, first_seen, reporters in storage.community_sites(report_threshold, limit):
         value = preview.lower().removeprefix("www.")
         host = value.split("/", 1)[0]
-        if not value or _is_official(host) or value in SHORTENERS:
+        if not value or _never_listed(host) or value in SHORTENERS:
             continue
         # A page on a big platform (sites.google.com/view/…) is listed as that page, never the platform.
         kind = "url" if "/" in value else "domain"
@@ -119,6 +128,8 @@ def build(storage, report_threshold: int) -> dict:
 
     sites: dict[str, dict] = {}
     for domain, first_seen, last_seen, hits in storage.recent_domains(20):
+        if _never_listed(domain):
+            continue
         sites[domain] = {"site": defang(domain), "first_seen": first_seen, "last_seen": last_seen,
                          "hits": hits, "source": "auto"}
     for preview, first_seen, reporters in storage.community_sites(report_threshold, 20):

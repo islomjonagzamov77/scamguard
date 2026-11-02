@@ -78,7 +78,7 @@ RULES: list[Rule] = [
         "Обещают неожиданный выигрыш или подарок",
     )),
     Rule("urgency", 0.25, _r(
-        r"shoshiling", r"zudlik bilan", r"tezda", r"faqat bugun", r"\d+ (?:soat|daqiqa) ichida",
+        r"shoshiling", r"zudlik bilan", r"tezda", r"faqat bugun", r"\d{1,4} (?:soat|daqiqa) ichida",
         r"oxirgi imkoniyat", r"kechiktirmasdan",
         r"срочно", r"немедленно", r"в течение \d+ (?:час|минут)", r"только сегодня", r"последний шанс",
         r"\burgent", r"immediately", r"within \d+ (?:hours?|minutes?)", r"last chance", r"act now",
@@ -117,7 +117,7 @@ RULES: list[Rule] = [
         r"(?:olish|tasdiqlash|rasmiylashtirish|chiqarish|tayyorlash) uchun [^.\n]{0,30}?(?:to'lov qiling|to'lang|to'lash)",
         r"viza uchun [^.\n]{0,25}(?:to'la|o'tkaz|yig'im)",
         r"(?:для получения|для оформления|для подтверждения|для выдачи)[^.\n]{0,40}оплат",
-        r"оплатите [\d\s]+(?:сум|\$|долл)",
+        r"оплатите [\d\s]{1,20}(?:сум|\$|долл)",
         r"pay (?:the |a )?(?:\$?\d+ )?(?:release|processing|customs|delivery|registration|visa) fee",
         r"(?:for|with) a \$\d+ (?:deposit|fee)",
     
@@ -140,7 +140,7 @@ RULES: list[Rule] = [
     )),
     Rule("easy_money", 0.35, _r(
         # a promise of easy/guaranteed income; plain words like "investment" or "remote job" must not match
-        r"kuniga \d[\d\s]*(?:so'm|ming|\$|dollar)", r"oyiga \d+ ?(?:\$|dollar|mln)", r"passiv daromad", r"oson pul",
+        r"kuniga \d[\d\s]{0,20}(?:so'm|ming|\$|dollar)", r"oyiga \d+ ?(?:\$|dollar|mln)", r"passiv daromad", r"oson pul",
         r"uyda o'tirib", r"(?:uyda|masofaviy)[^.\n]{0,30}(?:kuniga|oyiga) \d", r"layk bos",
         r"investitsiya qiling", r"(?:kripto|investitsiya)\S*[^.\n]{0,40}(?:foyda|daromad|x2|ikki barobar)",
         r"(?:x2|ikki barobar) qil", r"pul\S*[^.\n]{0,25}(?:x2|ikki barobar)",
@@ -148,9 +148,9 @@ RULES: list[Rule] = [
         r"удво\w* (?:ваш|депозит|деньги)",
         r"passive income", r"earn \$?\d+ (?:a|per) day", r"work from home[^.\n]{0,40}\$\d", r"double your",
     
-        r"\d+ ?% (?:foyda|daromad)\S* kafolat",
+        r"\d{1,4} ?% (?:foyda|daromad)\S* kafolat",
         r"(?:kafolatlangan|гарантир\w*|guaranteed) (?:\d+ ?% )?(?:foyda|прибыл|returns?)",
-        r"\d+ ?% (?:прибыли|weekly returns|returns)",
+        r"\d{1,4} ?% (?:прибыли|weekly returns|returns)",
         r"инвестируйте",
         r"invest now",
     ), Reason(

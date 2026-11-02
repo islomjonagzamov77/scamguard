@@ -57,6 +57,9 @@ class Storage:
                 domain TEXT PRIMARY KEY, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
                 hits INTEGER DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS domain_seen (
+                domain TEXT NOT NULL, fp TEXT NOT NULL, PRIMARY KEY (domain, fp)
+            );
             CREATE TABLE IF NOT EXISTS group_settings (
                 chat_id INTEGER PRIMARY KEY, mode TEXT NOT NULL DEFAULT 'delete',
                 strict INTEGER NOT NULL DEFAULT 0, mute INTEGER NOT NULL DEFAULT 0,
@@ -87,6 +90,10 @@ class Storage:
                 self.db.execute(f"ALTER TABLE group_settings ADD COLUMN {column}")
             except sqlite3.OperationalError:
                 pass   # already there
+        try:
+            self.db.execute("ALTER TABLE flagged_domains ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         self.db.commit()
         self._salt = self._load_salt(path.parent / ".salt")
 
@@ -133,14 +140,27 @@ class Storage:
         self.db.execute("UPDATE daily_cat SET n = n + 1 WHERE day = ? AND category = ?", (today, category))
         self.db.commit()
 
-    def record_domain(self, domain: str) -> None:
+    def record_domain(self, domain: str, seen_by: int | None = None, confirmed: bool = False) -> None:
+        """Count a detection. `seen_by` (whose message or check it was, kept as a salted fingerprint)
+        lets the threat feed require different people; `confirmed` = Google Safe Browsing or VirusTotal agreed."""
         today = date.today().isoformat()
         self.db.execute(
-            "INSERT INTO flagged_domains (domain, first_seen, last_seen, hits) VALUES (?, ?, ?, 1) "
-            "ON CONFLICT(domain) DO UPDATE SET last_seen = excluded.last_seen, hits = hits + 1",
-            (domain, today, today),
+            "INSERT INTO flagged_domains (domain, first_seen, last_seen, hits, confirmed) VALUES (?, ?, ?, 1, ?) "
+            "ON CONFLICT(domain) DO UPDATE SET last_seen = excluded.last_seen, hits = hits + 1, "
+            "confirmed = MAX(confirmed, excluded.confirmed)",
+            (domain, today, today, int(confirmed)),
         )
+        if seen_by is not None:
+            self.db.execute("INSERT OR IGNORE INTO domain_seen (domain, fp) VALUES (?, ?)", (domain, self._fp(seen_by)))
         self.db.commit()
+
+    def feed_domains(self, min_people: int, limit: int) -> list[tuple[str, str, str, int]]:
+        """Detected domains trustworthy enough for the public threat feed: confirmed by an online
+        service, or seen in the messages or checks of at least `min_people` different people."""
+        return self.db.execute(
+            "SELECT d.domain, d.first_seen, d.last_seen, d.hits FROM flagged_domains d "
+            "WHERE d.confirmed = 1 OR (SELECT COUNT(*) FROM domain_seen s WHERE s.domain = d.domain) >= ? "
+            "ORDER BY d.last_seen DESC, d.hits DESC LIMIT ?", (min_people, limit)).fetchall()
 
     def daily_series(self, days: int) -> list[tuple[str, int, int]]:
         """(day, checks, scams) for the last `days` days, oldest first, zero-filled."""
@@ -169,8 +189,9 @@ class Storage:
     def community_sites(self, threshold: int, limit: int) -> list[tuple[str, str, int]]:
         """Sites reported by at least `threshold` different people: (preview, first report day, reporters)."""
         return self.db.execute(
-            "SELECT preview, MIN(substr(ts, 1, 10)), COUNT(*) FROM reports WHERE kind = 'site' "
-            "GROUP BY ind HAVING COUNT(*) >= ? ORDER BY MAX(ts) DESC LIMIT ?", (threshold, limit)).fetchall()
+            "SELECT preview, MIN(substr(ts, 1, 10)), COUNT(*) FROM reports WHERE kind = 'site' AND ts >= ? "
+            "GROUP BY ind HAVING COUNT(*) >= ? ORDER BY MAX(ts) DESC LIMIT ?",
+            (self.reports_since(), threshold, limit)).fetchall()
 
     def first_day(self) -> str | None:
         row = self.db.execute("SELECT MIN(day) FROM daily").fetchone()
@@ -186,6 +207,14 @@ class Storage:
                 "blocked": self.blocked_count(threshold)}
 
     # ---- community blocklist ----
+    @staticmethod
+    def reports_since() -> str:
+        """Reports older than REPORT_DAYS stop counting everywhere: warnings, the feed and the stats."""
+        from datetime import timedelta
+        from .blocklist import REPORT_DAYS
+
+        return (datetime.now(timezone.utc) - timedelta(days=REPORT_DAYS)).isoformat(timespec="seconds")
+
     def _ind(self, kind: str, value: str) -> str:
         return hashlib.sha256(self._salt + f"{kind}:{value}".encode()).hexdigest()[:32]
 
@@ -193,26 +222,32 @@ class Storage:
         """Record one person's report of these indicators. Returns how many were new for this person."""
         reporter, now, new = self._fp(reporter_id), datetime.now(timezone.utc).isoformat(timespec="seconds"), 0
         for ind in indicators:
-            cur = self.db.execute(
-                "INSERT OR IGNORE INTO reports (ind, kind, preview, reporter, ts) VALUES (?, ?, ?, ?, ?)",
-                (self._ind(ind.kind, ind.value), ind.kind, ind.preview, reporter, now),
-            )
-            new += cur.rowcount
+            key = self._ind(ind.kind, ind.value)
+            if self.db.execute("SELECT 1 FROM reports WHERE ind = ? AND reporter = ?", (key, reporter)).fetchone():
+                # already reported by this person: only refresh the date, so the report keeps counting
+                self.db.execute("UPDATE reports SET ts = ? WHERE ind = ? AND reporter = ?", (now, key, reporter))
+                continue
+            self.db.execute("INSERT INTO reports (ind, kind, preview, reporter, ts) VALUES (?, ?, ?, ?, ?)",
+                            (key, ind.kind, ind.preview, reporter, now))
+            new += 1
         self.db.commit()
         return new
 
-    def report_counts(self, indicators) -> dict:
-        """Number of distinct reporters for each indicator (only those reported at least once)."""
+    def report_counts(self, indicators, since: str = "") -> dict:
+        """Number of distinct reporters for each indicator (only those reported at least once),
+        counting only reports made at or after `since` (an ISO timestamp)."""
         out = {}
         for ind in indicators:
-            n = self.db.execute("SELECT COUNT(*) FROM reports WHERE ind = ?", (self._ind(ind.kind, ind.value),)).fetchone()[0]
+            n = self.db.execute("SELECT COUNT(*) FROM reports WHERE ind = ? AND ts >= ?",
+                                (self._ind(ind.kind, ind.value), since)).fetchone()[0]
             if n:
                 out[ind] = n
         return out
 
     def blocked_count(self, threshold: int) -> int:
         return self.db.execute(
-            "SELECT COUNT(*) FROM (SELECT ind FROM reports GROUP BY ind HAVING COUNT(*) >= ?)", (threshold,)
+            "SELECT COUNT(*) FROM (SELECT ind FROM reports WHERE ts >= ? GROUP BY ind HAVING COUNT(*) >= ?)",
+            (self.reports_since(), threshold)
         ).fetchone()[0]
 
     # ---- groups (see guard.py) ----
