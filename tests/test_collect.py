@@ -99,3 +99,13 @@ def test_label_one_saves_masked_row_then_skips_the_duplicate(tmp_path, monkeypat
 
     assert collect.label_one(message, "pasted", seen, stats)   # same message again: no question asked
     assert stats["duplicates"] == 1
+
+
+def test_bot_export_rows_from_groups_are_reviewed_too(tmp_path, capsys):
+    path = tmp_path / "scamguard_export.csv"
+    path.write_text("text,label,predicted,user_agreed,timestamp,source,hits\n"
+                    "Kartangiz bloklandi,1,dangerous,1,2026-11-01,feedback,1\n"
+                    "Siz yutdingiz <PHONE>,,dangerous,,2026-11-02,group,7\n", encoding="utf-8")
+    items = list(collect.items_from_feedback(path))
+    assert items == [("Kartangiz bloklandi", "bot_feedback"), ("Siz yutdingiz <PHONE>", "group_removed")]
+    assert "7× seen" in capsys.readouterr().out

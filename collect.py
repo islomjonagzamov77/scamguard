@@ -3,6 +3,7 @@
     python collect.py                         # paste messages one by one
     python collect.py screenshots/            # read every image in a folder with OCR
     python collect.py feedback data/feedback_export.csv   # review what bot users sent as feedback
+    python collect.py feedback scamguard_export.csv       # the file the bot's /export sends you
     python collect.py score                   # how well the bot does on real messages it never trained on
 
 Why this exists: every message in data/*.csv was written by hand or by an AI, so the bot
@@ -46,7 +47,6 @@ SAFE_CATEGORIES = ["personal", "bank_notification", "service", "official_post", 
 
 BOLD, DIM, RED, GREEN, YELLOW, END = "\033[1m", "\033[2m", "\033[31m", "\033[32m", "\033[33m", "\033[0m"
 
-_USERNAME = re.compile(r"(?<![\w.])@[A-Za-z][A-Za-z0-9_]{3,31}\b")
 _APOS = "'ʻʼ’‘`"
 _NOT_APOS = "(?![" + _APOS + "])"
 # Each language gets points for its typical letters, little words and word endings.
@@ -68,10 +68,9 @@ _LANG_SIGNS = {
 
 def mask(text: str) -> str:
     """Mask private data before anything is saved."""
-    from scamguard.textnorm import mask_private
+    from scamguard.textnorm import mask_for_dataset
 
-    text = mask_private(text)
-    return _USERNAME.sub("<USER>", text).strip()
+    return mask_for_dataset(text)
 
 
 def fingerprint(text: str) -> str:
@@ -246,8 +245,12 @@ def items_from_folder(folder: Path):
 def items_from_feedback(path: Path):
     with open(path, encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
-    print(f"{len(rows)} feedback row(s). Users can be wrong, so you decide every label yourself.")
+    print(f"{len(rows)} row(s). Users and the bot can be wrong, so you decide every label yourself.")
     for row in rows:
+        if row.get("source") == "group":                  # removed by the group guard (see bot.py /export)
+            print(f"\n{DIM}Removed in a group as {row.get('predicted', '?')} ({row.get('hits', 1)}× seen).{END}")
+            yield row["text"], "group_removed"
+            continue
         agreed = "agreed with" if row.get("user_agreed") == "1" else "disagreed with"
         print(f"\n{DIM}The user {agreed} the bot's verdict ({row.get('predicted', '?')}).{END}")
         yield row["text"], "bot_feedback"

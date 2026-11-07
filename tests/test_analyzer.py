@@ -53,6 +53,19 @@ def test_brand_glued_to_bait_words_is_a_lookalike(host):
     assert "lookalike_site" in analyze_url(f"https://{host}/").signals
 
 
+@pytest.mark.parametrize("host", ["clickuzbonus.top", "paymebonusuz.site", "myclickpay.top", "elyurtgrant.top",
+                                  "uzcardbonusuz.online", "mygovnafaqa.site", "securepaymeuz.com"])
+def test_brand_with_several_bait_words_is_a_lookalike(host):
+    """Scammers stack bait words around the brand; these were 🔴 before the whole-word check and must stay so."""
+    assert "lookalike_site" in analyze_url(f"https://{host}/").signals
+    assert analyze(f"Bonusni olish uchun kiring: {host}", use_model=False).level == Level.DANGEROUS
+
+
+@pytest.mark.parametrize("host", ["doubleclick.net", "clickup.com", "clickfunnels.com", "uzumbozor.com", "myhumor.uz"])
+def test_real_names_around_a_brand_stay_clean(host):
+    assert "lookalike_site" not in analyze_url(f"https://{host}/").signals
+
+
 @pytest.mark.parametrize("url", ["https://click.uz", "https://my.click.uz/pay", "olx.uz/d/item", "https://t.me/durov"])
 def test_official_domains_are_clean(url):
     assert analyze_url(url).score == 0

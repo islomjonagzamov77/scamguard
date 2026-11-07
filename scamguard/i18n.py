@@ -308,6 +308,7 @@ T: dict[str, dict[str, str]] = {
               "Takrorlovchilarni 24 soatga cheklash: <b>{mute}</b>\n"
               "🆕 Yangi a'zolar himoyasi (1-kun: havola, forward, 🟡 yo'q): <b>{newcomers}</b>\n"
               "🧹 «Kirdi / chiqdi» xabarlarini o'chirish: <b>{clean}</b>\n"
+              "📚 AI'ni o'qitishga yordam (o'chirilgan firibgar xabarlar ismsiz, raqamlarsiz saqlanadi): <b>{train}</b>\n"
               "🧪 Test rejimi (adminlar xabarlari ham tekshiriladi): <b>{test}</b>\n"
               "Shu paytgacha o'chirildi: <b>{deleted}</b>\n\n{rights}",
         "ru": "🛡 <b>Настройки ScamGuard</b>\n\n"
@@ -315,6 +316,7 @@ T: dict[str, dict[str, str]] = {
               "Блокировать повторных нарушителей на 24 часа: <b>{mute}</b>\n"
               "🆕 Защита от новичков (1-й день: без ссылок, репостов, 🟡): <b>{newcomers}</b>\n"
               "🧹 Удалять сообщения «вошёл / вышел»: <b>{clean}</b>\n"
+              "📚 Помогать обучать AI (удалённые мошеннические сообщения хранятся без имён и номеров): <b>{train}</b>\n"
               "🧪 Тестовый режим (проверять и сообщения админов): <b>{test}</b>\n"
               "Удалено всего: <b>{deleted}</b>\n\n{rights}",
         "en": "🛡 <b>ScamGuard settings</b>\n\n"
@@ -322,6 +324,7 @@ T: dict[str, dict[str, str]] = {
               "Mute repeat offenders for 24 hours: <b>{mute}</b>\n"
               "🆕 Newcomer protection (day 1: no links, forwards, 🟡): <b>{newcomers}</b>\n"
               "🧹 Delete \"joined / left\" messages: <b>{clean}</b>\n"
+              "📚 Help train the AI (removed scams are kept without names or numbers): <b>{train}</b>\n"
               "🧪 Test mode (admins' messages are checked too): <b>{test}</b>\n"
               "Removed so far: <b>{deleted}</b>\n\n{rights}",
     },
@@ -362,6 +365,30 @@ T: dict[str, dict[str, str]] = {
               "it will appear in this list.",
     },
     "btn_groups": {"uz": "👥 Guruhlarim", "ru": "👥 Мои группы", "en": "👥 My groups"},
+    "g_btn_train": {"uz": "📚 AI o'qitish", "ru": "📚 Обучение AI", "en": "📚 Train AI"},
+    "export_not_owner": {
+        "uz": "🔒 Bu buyruq faqat bot egasi uchun.\n\nSizning Telegram ID'ingiz: <code>{id}</code>\n"
+              "Agar bot sizniki bo'lsa, Railway → Variables'da <code>SCAMGUARD_OWNER_IDS={id}</code> qo'shing.",
+        "ru": "🔒 Эта команда только для владельца бота.\n\nВаш Telegram ID: <code>{id}</code>\n"
+              "Если бот ваш, добавьте <code>SCAMGUARD_OWNER_IDS={id}</code> в Railway → Variables.",
+        "en": "🔒 This command is for the bot's owner only.\n\nYour Telegram ID: <code>{id}</code>\n"
+              "If the bot is yours, add <code>SCAMGUARD_OWNER_IDS={id}</code> in Railway → Variables.",
+    },
+    "export_empty": {
+        "uz": "📭 Hali hech narsa yig'ilmadi: foydalanuvchilar ✅/❌/🚩 bosganda yoki guruhlarda «📚 AI o'qitish» "
+              "yoqilganda xabarlar shu yerga tushadi.",
+        "ru": "📭 Пока ничего не собрано: сообщения появятся, когда пользователи нажмут ✅/❌/🚩 или группы "
+              "включат «📚 Обучение AI».",
+        "en": "📭 Nothing collected yet: messages arrive when users press ✅/❌/🚩 or groups turn on \"📚 Train AI\".",
+    },
+    "export_caption": {
+        "uz": "📦 Yig'ilgan xabarlar (niqoblangan): fikr-mulohaza {feedback}, guruhlardan {groups}.\n"
+              "Kompyuterda tekshirish: <code>python collect.py feedback {name}</code>",
+        "ru": "📦 Собранные сообщения (замаскированы): отзывы {feedback}, из групп {groups}.\n"
+              "Проверка на компьютере: <code>python collect.py feedback {name}</code>",
+        "en": "📦 Collected messages (masked): feedback {feedback}, from groups {groups}.\n"
+              "Review on your computer: <code>python collect.py feedback {name}</code>",
+    },
     "g_btn_test": {"uz": "🧪 Test", "ru": "🧪 Тест", "en": "🧪 Test"},
     "g_btn_log": {"uz": "🗒 Jurnal", "ru": "🗒 Журнал", "en": "🗒 Log"},
     "g_log_title": {

@@ -28,7 +28,7 @@ Most scams in Uzbekistan reach people through Telegram and SMS: fake prizes, fak
 - 🤝 **Learns new scam waves from users**: when 2 different people report messages that mean almost the same thing,
   near-copies are flagged for everyone, with no retraining. Only meaning vectors are stored, never the text
 - 📷 **Reads screenshots**: OCR in Uzbek (Latin + Cyrillic), Russian and English, with adaptive thresholding so light- and dark-mode chat screenshots both work. Images are processed in memory only
-- 🚩 **Community blocklist**: users report scam sites, phone numbers and Telegram accounts. After 2 *different* people report the same one, everyone who meets it is warned. The threshold protects innocent people from a single false report. Numbers and accounts are stored only as salted SHA-256 fingerprints
+- 🚩 **Community blocklist**: users report scam sites, phone numbers and Telegram accounts. After 2 *different* people report the same one, everyone who meets it gets a 🟡 warning; after 5 it is 🔴. Telegram accounts are cheap, so a few reports alone never make an innocent number or account "dangerous". Reports expire after 90 days. Numbers and accounts are stored only as salted SHA-256 fingerprints
 - 💬 **Inline mode**: type `@scamguard_uzbbot <link>` in *any* chat to get a verdict card; tapping it posts the verdict, signed by the bot (a built-in growth loop)
 - 📱 **Looks inside .apk apps**: the bot reads the app's manifest in memory and explains what it could do: read SMS
   codes, control the screen through Accessibility, draw fake login windows over bank apps, hide its icon, install
@@ -106,9 +106,11 @@ curl -s https://YOUR-DOMAIN/api/v1/check \
 
 ### `GET /api/v1/feed.txt` and `GET /api/v1/feed.json`: threat feed
 
-Fake and scam websites detected by the bot (rules, link analysis, online reputation) or reported by at least
-2 different users. Phone numbers and Telegram accounts are **never** published, and official sites and link
-shorteners are never listed.
+Fake and scam websites the bot detected and that Google Safe Browsing or VirusTotal confirm, or that turned up for at
+least 3 different people, plus sites reported by at least 2 different users. Checks made through the public web API
+never add a domain, so nobody can push a competitor's site into the feed. Phone numbers and Telegram accounts are
+**never** published, and official sites, link shorteners and big brands' own domains (`olx.kz`, `googleapis.com`) are
+never listed.
 
 - `feed.txt`: one domain per line with `#` comments. **Pi-hole, AdGuard Home and uBlock Origin** can import it as a blocklist.
 - `feed.json`: every indicator with `type` (`domain`, or `url` for a single page on a big platform), `first_seen`,
@@ -165,7 +167,7 @@ message ─┬─► intent.py     what does the sender want? (request / warning
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-python -m pytest                   # 285 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
+python -m pytest                   # 327 tests incl. a simulated Telegram chat, real OCR, hostile APK files and the web API
 python -m scamguard.semantic download   # the multilingual transformer (~240 MB, optional)
 python train.py                    # train both AI models and print the evaluation
 python benchmark.py                # how well each AI model handles scam types it never saw
@@ -191,6 +193,7 @@ python bot.py
 | Language | the language of whoever added the bot | language of the bot's messages in the group |
 | 🆕 Newcomers | on | for 24 hours after joining, a member's links, forwards from channels and 🟡 messages are removed: most spam comes from accounts that join and post at once |
 | 🧹 Joined/left | off | delete "X joined / X left" messages |
+| 📚 Train AI | off | each removed scam is kept masked (no group, no sender, no numbers or @usernames) for the bot owner to review and add to the dataset |
 | 🧪 Test | off | admins' messages are checked too, to try the bot (or demo it) without a second account |
 | 🗒 Log | | the last removals of 30 days: when, who, why. Also `/log`. Never the message text |
 
@@ -257,9 +260,13 @@ Everything in `data/seed_*.csv` was written by hand, so the bot learned how *we 
 python collect.py                      # paste messages one by one
 python collect.py screenshots/         # OCR every image in a folder
 python collect.py feedback data/feedback_export.csv   # review what bot users sent
+python collect.py feedback scamguard_export.csv       # the file the bot's /export sends you
 python collect.py score                # real-world numbers on messages the bot never trained on
 ```
 
+- **Getting the bot's collected messages:** set `SCAMGUARD_OWNER_IDS` (your Telegram ID, comma-separated for several)
+  in Railway → Variables, then send `/export` to the bot. It replies with one CSV: button feedback (✅/❌/🚩) plus
+  scams removed in groups that turned on 📚 Train AI. Anyone else who sends `/export` only sees their own ID.
 - Card numbers, phones, emails and @usernames are masked automatically. Remove people's names yourself (press `e`).
 - Duplicates of anything already in any dataset (training or test) are skipped.
 - A fixed fingerprint split sends about 80% to `data/real_messages.csv` (training) and 20% to
@@ -327,6 +334,9 @@ Real metrics will come from real users' ✅/❌ feedback and 🚩 reports (see t
 - [x] Finds apps hidden in archives or renamed, explains what a removed app would do, removal log for admins,
   test mode, one-tap "add to group" with the rights pre-ticked
 - [x] Newcomer protection (first day: no links, channel forwards or 🟡), joined/left cleanup, "My groups" dashboard
+- [x] Security hardening (external review, PR #9): whole-word lookalike check, threat feed needs confirmation, 5 reports
+  for 🔴, APK parser sees through padded headers and decoy attribute values, bounded regexes
+- [x] Data collection from the bot: owner-only `/export`, opt-in "📚 Train AI" in groups
 - [ ] Check that domain age works for `.uz` sites in production; if RDAP doesn't cover `.uz`, fall back to its WHOIS server
 - [x] Threat feed of detected fake sites (`/api/v1/feed.txt` for DNS filters, `/api/v1/feed.json` for banks and CERTs)
 - [x] Check a message on the website and in the Telegram Mini App; public `POST /api/v1/check` API

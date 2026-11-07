@@ -921,3 +921,58 @@ def test_group_leaves_the_list_when_the_bot_is_removed(env):
                                               old_chat_member=ChatMemberMember(user=bot_user),
                                               new_chat_member=ChatMemberLeft(user=bot_user))})
     assert botmod.storage.managed_groups(OWNER.id) == []
+
+
+# ---------------- collecting real data: /export and "Help train the AI" ----------------
+import csv as _csv  # noqa: E402
+
+SCAM_WITH_CONTACTS = ("Tabriklaymiz! iPhone yutdingiz, 24 soat ichida click-uz-bonus.xyz ga kiring yoki "
+                      "@prize_admin_uz ga yozing, tel +998 90 123 45 67")
+
+
+def test_group_scams_are_kept_only_when_admins_opt_in(env):
+    botmod, session, feed = env
+    make_admins(session)
+    settings = english_group(botmod)
+    feed({"message": group_msg(SCAM_WITH_CONTACTS)})
+    assert botmod.storage.db.execute("SELECT COUNT(*) FROM training_candidates").fetchone()[0] == 0
+    settings.train = True
+    botmod.storage.save_group_settings(GROUP.id, settings)
+    for _ in range(2):                                              # the same wave twice: stored once, counted twice
+        feed({"message": group_msg(SCAM_WITH_CONTACTS)})
+    rows = botmod.storage.db.execute("SELECT * FROM training_candidates").fetchall()
+    assert len(rows) == 1
+    stored = str(rows)
+    assert "+998" not in stored and "123 45 67" not in stored and "@prize_admin_uz" not in stored
+    assert "Test group" not in stored and "Islom" not in stored     # no group, no sender
+    assert rows[0][-1] == 2                                          # hits
+
+
+def test_export_is_for_the_owner_only(env, monkeypatch):
+    botmod, session, feed = env
+    botmod.storage.set_lang(USER.id, "en")
+    reply = feed({"message": msg("/export")})
+    assert "owner only" in reply and str(USER.id) in reply
+    monkeypatch.setattr(botmod, "OWNER_IDS", {USER.id})
+    assert "Nothing collected yet" in feed({"message": msg("/export")})
+
+    botmod.storage.add_feedback("Kartangiz bloklandi, kodni ayting: 8600 1234 5678 9012", 1, "dangerous", True)
+    botmod.storage.add_candidate(SCAM_WITH_CONTACTS, "dangerous")
+    feed({"message": msg("/export")})
+    doc = calls_named(session, "SendDocument")[-1]
+    assert doc.document.filename.startswith("scamguard_export_") and "collect.py feedback" in doc.caption
+    rows = list(_csv.DictReader(io.StringIO(doc.document.data.decode("utf-8"))))
+    assert [r["source"] for r in rows] == ["feedback", "group"]
+    assert "8600" not in doc.document.data.decode() and "+998" not in doc.document.data.decode()
+
+
+def test_settings_have_the_train_toggle(env):
+    botmod, session, feed = env
+    make_admins(session)
+    english_group(botmod)
+    feed({"message": group_msg("/settings", user=OWNER)})
+    text = calls_named(session, "SendMessage")[-1].text
+    assert "Help train the AI" in text
+    panel = group_msg("panel", user=User(id=BOT_ID, is_bot=True, first_name="ScamGuard"))
+    feed({"callback_query": CallbackQuery(id="tr1", from_user=OWNER, chat_instance="x", data="gs:train:", message=panel)})
+    assert botmod.storage.group_settings(GROUP.id).train is True
