@@ -45,6 +45,7 @@ class GroupSettings:
     test: bool = False       # test mode: admins' messages are checked too (to try the bot alone)
     newcomers: bool = True   # first day after joining: no links, no forwards from channels, no 🟡
     clean_joins: bool = False  # delete "X joined / X left" messages
+    train: bool = False      # keep removed scams (masked, no names) to train the AI; admins opt in
 
 
 def decide(level: Level, signals: list[str], settings: GroupSettings, can_delete: bool) -> str:

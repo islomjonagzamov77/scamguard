@@ -51,6 +51,7 @@ from aiogram.enums import ChatAction, ChatType, MessageEntityType, ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramNotFound, TelegramUnauthorizedError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
+    BufferedInputFile,
     BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeDefault, CallbackQuery, ChatAdministratorRights,
     ChatMemberUpdated, ChatPermissions,
     ChosenInlineResult, ErrorEvent, InlineKeyboardButton, InlineKeyboardMarkup, InlineQuery, MenuButtonWebApp, WebAppInfo,
@@ -79,6 +80,8 @@ log = logging.getLogger("scamguard")
 
 LEVEL_ORDER = [Level.SAFE, Level.SUSPICIOUS, Level.DANGEROUS]
 TASHKENT = timezone(timedelta(hours=5))   # times in the group log
+# Telegram user IDs allowed to /export the collected training data (Railway → Variables, comma-separated).
+OWNER_IDS = {int(x) for x in re.split(r"[,\s]+", os.getenv("SCAMGUARD_OWNER_IDS", "")) if x.strip().isdigit()}
 RATE_LIMIT = (15, 60)  # max checks per user per N seconds
 MAX_CACHE = 2000
 
@@ -613,6 +616,22 @@ async def cmd_groups(message: Message) -> None:
     await message.answer(t("my_groups_title", lang), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
 
 
+@private.message(Command("export"))
+async def cmd_export(message: Message) -> None:
+    """The owner gets everything collected for training as one CSV, to label with collect.py."""
+    lang = lang_of(message.from_user)
+    if message.from_user.id not in OWNER_IDS:
+        await message.answer(t("export_not_owner", lang, id=message.from_user.id))
+        return
+    data, feedback, from_groups = storage.export_dataset_csv()
+    if not feedback and not from_groups:
+        await message.answer(t("export_empty", lang))
+        return
+    name = f"scamguard_export_{datetime.now(TASHKENT):%Y-%m-%d}.csv"
+    await message.answer_document(BufferedInputFile(data, filename=name),
+                                  caption=t("export_caption", lang, feedback=feedback, groups=from_groups, name=name))
+
+
 @private.message(Command("settings", "log", "check", "report"))
 async def private_group_command(message: Message) -> None:
     """Group commands typed in the private chat: say where they work instead of checking the text."""
@@ -815,6 +834,9 @@ async def remove(bot: Bot, message: Message, result: Result, settings: guard.Gro
         reason = app.reasons[0].text(lang)             # "can read your SMS codes" says more than ".apk"
     doc = message.document
     storage.add_group_log(message.chat.id, name, (f"{doc.file_name}: " if doc and doc.file_name else "") + reason)
+    text = message.text or message.caption or ""
+    if settings.train and text and result.level != Level.SAFE:   # opted in: a real scam for the dataset
+        storage.add_candidate(text, result.level.value)
     now = time.monotonic()
     if now - _last_notice.get(message.chat.id, -NOTICE_GAP_S) >= NOTICE_GAP_S:
         _last_notice[message.chat.id] = now
@@ -901,7 +923,7 @@ def settings_view(settings: guard.GroupSettings, info: ChatInfo, chat_id: int | 
         rights += "\n" + t("g_cannot_mute", lang)
     text = t("g_settings", lang, mode=t(f"g_mode_{settings.mode}", lang), strict=onoff(settings.strict),
              mute=onoff(settings.mute), test=onoff(settings.test), newcomers=onoff(settings.newcomers),
-             clean=onoff(settings.clean_joins), deleted=settings.deleted, rights=rights)
+             clean=onoff(settings.clean_joins), train=onoff(settings.train), deleted=settings.deleted, rights=rights)
     if title:
         text = f"👥 <b>{html.escape(title)}</b>\n" + text
     b = InlineKeyboardButton
@@ -913,6 +935,7 @@ def settings_view(settings: guard.GroupSettings, info: ChatInfo, chat_id: int | 
          b(text=f"{t('g_btn_mute', lang)}: {onoff(settings.mute)}", callback_data=cb("mute"))],
         [b(text=f"{t('g_btn_newcomers', lang)}: {onoff(settings.newcomers)}", callback_data=cb("newcomers")),
          b(text=f"{t('g_btn_clean', lang)}: {onoff(settings.clean_joins)}", callback_data=cb("clean"))],
+        [b(text=f"{t('g_btn_train', lang)}: {onoff(settings.train)}", callback_data=cb("train"))],
         [b(text=f"{t('g_btn_test', lang)}: {onoff(settings.test)}", callback_data=cb("test")),
          b(text=t("g_btn_log", lang), callback_data=cb("log"))],
         [b(text=f"{t('g_btn_lang', lang)}: {LANG_NAMES[lang]}", callback_data=cb("lang"))],
@@ -1054,6 +1077,8 @@ async def on_group_setting(callback: CallbackQuery, bot: Bot) -> None:
         settings.newcomers = not settings.newcomers
     elif what == "clean":
         settings.clean_joins = not settings.clean_joins
+    elif what == "train":
+        settings.train = not settings.train
     elif what == "log":
         await callback.answer()
         await bot.send_message(here, log_text(chat_id, settings.lang))   # in the chat where it was asked

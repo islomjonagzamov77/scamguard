@@ -47,3 +47,12 @@ def mask_private(text: str) -> str:
     text = _CARD.sub("<CARD>", text)
     text = _EMAIL.sub("<EMAIL>", text)
     return _PHONE.sub("<PHONE>", text)
+
+
+_USERNAME = re.compile(r"(?<![\w.])@[A-Za-z][A-Za-z0-9_]{3,31}\b")
+
+
+def mask_for_dataset(text: str) -> str:
+    """mask_private plus Telegram @usernames: what a message looks like before it may be kept
+    for training (the dataset never holds card or phone numbers, emails or accounts)."""
+    return _USERNAME.sub("<USER>", mask_private(text)).strip()
