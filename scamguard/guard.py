@@ -5,7 +5,8 @@ least important:
   * Never act on admins, anonymous admins or the group's own linked channel (its posts are copied
     into the comments group automatically). Their messages are the group's own voice. The one
     exception is test mode, which admins switch on to try the bot without a second account.
-  * 🔴 dangerous (scam links, programs like .apk/.exe, community-blocklisted numbers) -> delete.
+  * 🔴 dangerous (scam links, programs like .apk/.exe, numbers or accounts reported by 5+ different
+    people) -> delete. 2-4 reports only make a message 🟡 (see blocklist.report_weight).
   * 🟡 suspicious -> left alone by default: a deleted normal message angers members more than a
     missed borderline one. "Strict" mode deletes these too. A "can't tell" question about a money
     request is never deleted.
