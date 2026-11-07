@@ -50,6 +50,7 @@ BAIT_AFFIXES = {
     "uz", "uzb", "bonus", "pay", "pul", "login", "verify", "secure", "karta", "card", "bank", "gift", "prize",
     "sovga", "sovg'a", "yutuq", "aksiya", "promo", "support", "help", "online", "app", "my", "web", "id",
     "auth", "official", "rasmiy", "oplata", "cash", "money", "kabinet", "cabinet", "account", "premium",
+    "grant", "nafaqa", "kredit", "tolov", "qaytarish", "subsidiya", "yordam", "free", "bepul",
 }
 
 BRAND_LABELS = {"olx": "OLX", "mygov": "my.gov.uz", "elyurt": "El-yurt umidi", "tbcbank": "TBC Bank",
@@ -197,18 +198,31 @@ def _words(host: str) -> list[str]:
 
 
 def _imitates(word: str, brand: str) -> bool:
-    """The word is the brand, a one-letter typo of it, or the brand glued to a bait word
-    ("clickuz", "paymebonus"). Other words that merely contain it (clickhouse, humor,
-    paymentwall, googleapis) are different names, not imitations."""
+    """The word is the brand, a one-letter typo of it, or the brand glued to bait words on either
+    side ("clickuz", "paymebonus", "myclickpay", "clickuzbonus"). Other words that merely contain
+    it (clickhouse, humor, paymentwall, googleapis) are different names, not imitations."""
     if word == brand:
         return True
     if len(brand) >= 5 and abs(len(word) - len(brand)) <= 1 and _levenshtein(word, brand) == 1:
         return True
-    if word.startswith(brand):
-        return word[len(brand):] in BAIT_AFFIXES
-    if word.endswith(brand):
-        return word[:-len(brand)] in BAIT_AFFIXES
+    start = word.find(brand)
+    while start != -1:                  # bait words before and/or after: clickuz, myclick, myclickpay
+        before, after = word[:start], word[start + len(brand):]
+        if (not before or _bait_words(before)) and (not after or _bait_words(after)):
+            return True
+        start = word.find(brand, start + 1)
     return False
+
+
+def _bait_words(rest: str, parts: int = 3) -> bool:
+    """`rest` is made of 1 to `parts` bait words glued together: "uzbonus" = uz + bonus,
+    "bonusuz" = bonus + uz. Scammers stack them ("clickuzbonus"); a real name like "house"
+    or "ntwall" is not made of bait words, so clickhouse and paymentwall still don't match."""
+    if not rest:
+        return False
+    if rest in BAIT_AFFIXES:
+        return True
+    return parts > 1 and any(rest.startswith(a) and _bait_words(rest[len(a):], parts - 1) for a in BAIT_AFFIXES)
 
 
 def _impersonated_brand(host: str) -> str | None:
